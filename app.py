@@ -193,7 +193,7 @@ def plot_score_chart(case):
     cutoff_prob = 0.351
     cutoff_score = (np.log(cutoff_prob / (1 - cutoff_prob)) - logit_baseline) / score_unit
     ax_bottom.axhline(y=cutoff_prob, color='red', linestyle='--', linewidth=1.5)
-    ax_bottom.text(-12, cutoff_prob, f'{cutoff_prob:.3f}', color='red', fontsize=12, va='center')
+    ax_bottom.text(-15, cutoff_prob, f'{cutoff_prob:.3f}', color='red', fontsize=12, va='center')
     ax_bottom.text(245, -0.35, f'Cutoff {cutoff_prob:.3f} is selected with the Youden J index',
                    fontsize=9, ha='right', va='top', color='gray')
 
