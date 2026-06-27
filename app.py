@@ -194,7 +194,7 @@ def plot_score_chart(case):
     cutoff_score = (np.log(cutoff_prob / (1 - cutoff_prob)) - logit_baseline) / score_unit
     ax_bottom.axhline(y=cutoff_prob, color='red', linestyle='--', linewidth=1.5)
     ax_bottom.text(-12, cutoff_prob, f'{cutoff_prob:.3f}', color='red', fontsize=12, va='center')
-    ax_bottom.text(245, -0.35, f'Cutoff {cutoff_prob:.3f} is based on the maximum Youden index',
+    ax_bottom.text(245, -0.35, f'Cutoff {cutoff_prob:.3f} is selected with the Youden J index',
                    fontsize=9, ha='right', va='top', color='gray')
 
     for p in np.arange(0.1, 1.01, 0.1):
@@ -215,23 +215,23 @@ def plot_score_chart(case):
 # ========================
 # Streamlit 界面
 # ========================
-st.set_page_config(page_title="EPE 预测评分系统", layout="wide")
-st.title("Extraprostatic Extension (EPE) 预测评分系统")
-st.markdown("基于联合 MRI 语义特征与临床指标的 Nomogram 简化评分工具。请在下表中输入患者信息：")
+st.set_page_config(page_title="Extraprostatic Extension Risk Calculator", layout="wide")
+st.title("Extraprostatic Extension Risk Calculator")
+st.markdown("Predict the probability of extraprostatic extension using MRI semantic features and clinical variables")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("临床指标")
-    ftpsa = st.number_input("f/tPSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f")
-    fpsa = st.number_input("fPSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.2f")
-    cclmax = st.number_input("CCLmax (mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f")
+    st.subheader("Clinical Variables")
+    ftpsa = st.number_input("free/total PSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f")
+    fpsa = st.number_input("free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.2f")
+    cclmax = st.number_input("capsular contact length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f")
 
 with col2:
-    st.subheader("MRI 特征（勾选=存在）")
-    bulge = st.checkbox("包膜外凸 (Capsular bulging)", value=False)
-    disruption = st.checkbox("包膜中断 (Capsular disruption)", value=False)
-    retraction = st.checkbox("包膜回缩 (Capsular retraction)", value=False)
+    st.subheader("MRI Semantic Features")
+    bulge = st.checkbox("Capsular bulging", value=False)
+    disruption = st.checkbox("Capsular disruption", value=False)
+    retraction = st.checkbox("Capsular retraction", value=False)
 
 # 构建病例字典
 case = {
@@ -248,12 +248,12 @@ fig, total_score, prob = plot_score_chart(case)
 
 st.markdown("---")
 col_score, col_prob, col_risk = st.columns(3)
-col_score.metric("总分 (Total Score)", f"{total_score:.1f}")
-col_prob.metric("预测概率 (Probability)", f"{prob:.3f}")
+col_score.metric("Total Score", f"{total_score:.1f}")
+col_prob.metric("Probability", f"{prob:.3f}")
 if prob >= 0.351:
-    col_risk.error("高风险 (≥ 0.351)")
+    col_risk.error("High Risk of EPE (≥ 0.351)")
 else:
-    col_risk.success("低风险 (< 0.351)")
+    col_risk.success("Low Risk of EPE (< 0.351)")
 
 st.pyplot(fig)
-st.markdown("* 红色虚线为最大约登指数对应的截断值 (0.351)。")
+st.markdown("* The red dashed line represents the optimal cutoff value (0.351) based on the maximum Youden index.")
