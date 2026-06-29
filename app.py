@@ -256,4 +256,5 @@ else:
     col_risk.success("Low Risk of EPE (< 0.351)")
 
 st.pyplot(fig)
-st.markdown("* The red dashed line represents the optimal cutoff value (0.351) based on the maximum Youden index.")
+st.markdown("* CCLmax range (0-105) corresponds to the 2.5%-97.5% percentile of the training set.
+Binary variable scores are rounded integers; actual calculations use exact regression coefficients.")
