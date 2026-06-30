@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 from scipy.special import expit
 from datetime import datetime
 from io import BytesIO
-from PIL import Image, ImageDraw, ImageFont   # ✅ 修复：添加了 ImageDraw 和 ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 # ============================================================
-# 1. 模型参数（与列线图代码完全一致）
+# 1. 模型参数
 # ============================================================
 intercept = -1.859
 coef = {
@@ -45,7 +45,7 @@ var_display_names = {
     "Capsular retraction": "Capsular Retraction"
 }
 
-# ----- 计算列线图分数体系 -----
+# ----- 列线图分数计算 -----
 def get_lp(var, x_raw):
     if var == "CCLmax":
         return coef[var] * (x_raw - mu_cc) / sigma_cc
@@ -101,7 +101,7 @@ def inv_calc_points(var, points):
         return None
 
 # ============================================================
-# 2. 绘图函数：列线图（含红点标记）
+# 2. 列线图绘图
 # ============================================================
 def plot_nomogram(case):
     figsize = (12, 11)
@@ -246,7 +246,6 @@ def plot_nomogram(case):
     else:
         st.warning("概率轴无有效刻度，请检查模型参数。")
 
-    # 总分红点
     total_score = 0.0
     for var in variables:
         raw_val = case[var]
@@ -301,7 +300,7 @@ def plot_probability_curve(total_score, prob_case):
     return fig
 
 # ============================================================
-# 4. 合并图片函数（供下载）
+# 4. 合并图片下载
 # ============================================================
 def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     try:
@@ -315,23 +314,22 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         buf2.seek(0)
         img2 = Image.open(buf2)
 
-        # ---------- 可调参数 ----------
+        # ----- 可调参数（控制下载图片的间距） -----
         title_font_size = 50
         info_font_size = 36
         section_font_size = 36
         line_height_ratio = 1.3
-        spacing_after_title = 10
-        spacing_after_date = 10
-        spacing_after_input = 10
-        spacing_after_result = 20
-        spacing_after_line = 10
-        spacing_before_img = 10
-        spacing_between_sections = 5    # 两个图之间的额外间距
+        spacing_after_title = 10      # 标题→日期
+        spacing_after_date = 10       # 日期→输入
+        spacing_after_input = 10      # 输入→结果
+        spacing_after_result = 20     # 结果→分隔线
+        spacing_after_line = 10       # 分隔线→第一个子标题
+        spacing_before_img = 10       # 子标题→图片
+        spacing_between_sections = 5  # 列线图与概率曲线之间
         bottom_padding = 30
         top_padding = 20
-        # -----------------------------
+        # -----------------------------------------
 
-        # 加载字体
         try:
             title_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", title_font_size)
             info_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", info_font_size)
@@ -366,39 +364,31 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         draw = ImageDraw.Draw(combined)
 
         y = top_padding
-
-        # 主标题
         draw.text((20, y), "Extraprostatic Extension Risk Calculator", fill='black', font=title_font)
         y += line_height_title + spacing_after_title
 
-        # 日期
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
         draw.text((20, y), f"Date: {now}", fill='black', font=info_font)
         y += line_height_info + spacing_after_date
 
-        # 输入参数
         info = (f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, "
                 f"CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
                 f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}")
         draw.text((20, y), info, fill='black', font=info_font)
         y += line_height_info + spacing_after_input
 
-        # 预测结果
         result = f"Total Points: {total_score:.1f}, Probability: {prob:.3f}"
         draw.text((20, y), result, fill='black', font=info_font)
         y += line_height_info + spacing_after_result
 
-        # 分隔线
         draw.line((0, y, max_width, y), fill='gray', width=3)
         y += spacing_after_line
 
-        # ---- 列线图（带子标题） ----
         draw.text((20, y), "Nomogram with Current Case", fill='black', font=section_font)
         y += line_height_section + spacing_before_img
         combined.paste(img1, (0, y))
         y += img1.height
 
-        # ---- 概率曲线（带子标题） ----
         y += spacing_between_sections
         draw.text((20, y), "Total Points → Probability Curve", fill='black', font=section_font)
         y += line_height_section + spacing_before_img
@@ -412,7 +402,7 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     except Exception as e:
         st.error(f"生成图片时出错：{e}")
         import traceback
-        st.error(traceback.format_exc())   # 输出详细错误堆栈，便于调试
+        st.error(traceback.format_exc())
         dummy = Image.new('RGB', (100, 100), 'white')
         buf = BytesIO()
         dummy.save(buf, format='PNG')
@@ -420,41 +410,41 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         return buf
 
 # ============================================================
-# 5. Streamlit 界面 + CSS 间距控制
+# 5. Streamlit 主界面 + CSS 自定义间距
 # ============================================================
 st.set_page_config(page_title="Extraprostatic Extension Risk Calculator", layout="wide")
 
-# ========== 自定义 CSS 压缩网页间距 ==========
+# ===== CSS 自定义间距（可自由调整） =====
 st.markdown("""
 <style>
-    /* 页面主标题 (h1) */
+    /* 1. 页面主标题 (h1) */
     h1 {
-        margin-top: -10px !important;
-        margin-bottom: 0px !important;
+        margin-top: 0px !important;
+        margin-bottom: -5px !important;
     }
-    /* 所有二级标题 (h2) – 包括 "Clinical Variables"、"MRI Semantic Features" 等 */
+    /* 2. 二级标题 (h2) – 例如 "Clinical Variables"、"MRI Semantic Features" */
     h2 {
+        margin-top: -5px !important;
+        margin-bottom: -5px !important;
+    }
+    /* 3. 所有元素容器（输入框、按钮、图表、指标卡等） */
+    .element-container {
         margin-top: -10px !important;
         margin-bottom: -10px !important;
     }
-    /* 所有元素容器 (包括输入框、图表、指标卡等) */
-    .element-container {
-        margin-top: -20px !important;
-        margin-bottom: -20px !important;
-    }
-    /* 专门针对 st.pyplot 生成的图表容器 */
+    /* 4. 专门控制 st.pyplot 图表（列线图和概率曲线） */
     .stImage, .stPlotlyChart {
-        margin-top: -30px !important;
-        margin-bottom: -30px !important;
+        margin-top: -15px !important;
+        margin-bottom: -15px !important;
     }
-    /* 整个内容区的内边距（上下收缩） */
+    /* 5. 整个内容区的内边距 */
     .block-container {
         padding-top: 0.5rem !important;
         padding-bottom: 0.5rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
-# ============================================
+# ==========================================
 
 st.title("Extraprostatic Extension Risk Calculator")
 st.markdown("Predict the probability of extraprostatic extension using MRI semantic features and clinical variables")
@@ -473,7 +463,6 @@ with col2:
     disruption = st.checkbox("Capsular Disruption", value=False)
     retraction = st.checkbox("Capsular Retraction", value=False)
 
-# 构建病例字典
 case = {
     "f/tPSA": ftpsa,
     "fPSA": fpsa,
@@ -485,7 +474,6 @@ case = {
 
 fig_nomogram, total_score, prob = plot_nomogram(case)
 
-# 显示指标
 st.markdown("---")
 col_score, col_prob, col_risk = st.columns(3)
 col_score.metric("Total Points", f"{total_score:.1f}")
@@ -495,16 +483,13 @@ if prob >= 0.351:
 else:
     col_risk.success("Low Risk of EPE (< 0.351)")
 
-# 显示列线图
 st.subheader("Nomogram with Current Case Marked")
 st.pyplot(fig_nomogram)
 
-# 显示概率曲线
 st.subheader("Total Points → Probability Curve")
 fig_curve = plot_probability_curve(total_score, prob)
 st.pyplot(fig_curve)
 
-# 下载按钮
 buf = combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600)
 st.download_button(
     label="📥 Download Full Image (600 DPI)",
