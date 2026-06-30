@@ -114,7 +114,7 @@ def plot_nomogram(case):
     """
     # 绘图参数（与列线图代码一致）
     figsize = (12, 11)
-    left_margin = 40
+    left_margin = 45
     axis_gap = 1.0
     y_points = 9.5
     y_ftpsa  = y_points - axis_gap
@@ -326,9 +326,9 @@ def plot_probability_curve(total_score, prob_case):
     cutoff_prob = 0.351
     cutoff_score = (np.log(cutoff_prob / (1 - cutoff_prob)) - logit_baseline) * scale
     ax.axhline(y=cutoff_prob, color='red', linestyle='--', linewidth=1.5)
-    ax.text(MAX_POINTS*0.9, cutoff_prob+0.01, f'Cutoff = {cutoff_prob:.3f}',
-            color='red', fontsize=12, ha='right')
-    ax.axvline(x=cutoff_score, color='red', linestyle='--', linewidth=1.0, alpha=0.5)
+    ax.text(-0.5, cutoff_prob+0.01, f'Cutoff = {cutoff_prob:.3f}',
+            color='red', fontsize=10, ha='right')
+    # ax.axvline(x=cutoff_score, color='red', linestyle='--', linewidth=1.0, alpha=0.5)
 
     plt.tight_layout()
     return fig
