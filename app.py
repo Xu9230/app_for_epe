@@ -466,32 +466,6 @@ st.set_page_config(page_title="Extraprostatic Extension Risk Calculator", layout
 st.title("Extraprostatic Extension Risk Calculator")
 st.markdown("Predict the probability of extraprostatic extension using MRI semantic features and clinical variables")
 
-<style>
-    /* 减少所有 st.subheader 的上下边距 */
-    .css-1v3fvcr, .stSubheader {
-        margin-top: -10px !important;
-        margin-bottom: -10px !important;
-    }
-
-    /* 减少 st.pyplot 图表之间的边距 */
-    .stPlotlyChart, .stImage {
-        margin-top: -20px !important;
-        margin-bottom: -20px !important;
-    }
-
-    /* 更通用的：减少所有元素容器的边距 */
-    .element-container {
-        margin-top: -15px !important;
-        margin-bottom: -15px !important;
-    }
-
-    /* 可选：减少整个页面顶部和底部的内边距 */
-    .block-container {
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-    }
-</style>
-
 col1, col2 = st.columns(2)
 
 with col1:
