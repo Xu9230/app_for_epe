@@ -356,9 +356,9 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
 
     # 2. 加载字体（优先使用 Arial，备选 SimHei）
     try:
-        font_large = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 50)   # 主标题
-        font_medium = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 36)  # 副标题、信息
-        font_small = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 28)   # 备用（未使用）
+        font_large = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 1500)   # 主标题
+        font_medium = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 1000)  # 副标题、信息
+        font_small = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 1000)   # 备用（未使用）
     except:
         try:
             font_large = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", 50)
@@ -369,11 +369,11 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
 
     # 3. 计算布局尺寸
     max_width = max(img1.width, img2.width)
-    top_margin = 280  # 为顶部信息预留高度
+    top_margin = 500  # 为顶部信息预留高度
     title_height = 65
     info_line_height = 50
     section_title_height = 50
-    gap_between_figures = 10  # 两个图之间的间隙（子图标题占用空间计入）
+    gap_between_figures = 5  # 两个图之间的间隙（子图标题占用空间计入）
 
     # 顶部信息区域高度
     info_height = (top_margin +
@@ -396,24 +396,24 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     y = 20
 
     # 标题（大号）
-    draw.text((20, y), "Extraprostatic Extension Risk Calculator", fill='black', font=font_large)
+    draw.text((1000, y), "Extraprostatic Extension Risk Calculator", fill='black', font=font_large)
     y += 70
 
     # 日期
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    draw.text((20, y), f"Date: {now}", fill='black', font=font_medium)
+    draw.text((1000, y), f"Date: {now}", fill='black', font=font_medium)
     y += 50
 
     # 输入参数
     info = (f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, "
             f"CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
             f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}")
-    draw.text((20, y), info, fill='black', font=font_medium)
+    draw.text((1000, y), info, fill='black', font=font_medium)
     y += 50
 
     # 预测结果
     result = f"Total Points: {total_score:.1f}, Probability: {prob:.3f}"
-    draw.text((20, y), result, fill='black', font=font_medium)
+    draw.text((1000, y), result, fill='black', font=font_medium)
     y += 60
 
     # 分隔线
@@ -421,13 +421,13 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     y += 15
 
     # 5. 粘贴列线图（带子标题）
-    draw.text((20, y), "Nomogram with Current Case", fill='black', font=font_medium)
+    draw.text((1000, y), "Nomogram with Current Case", fill='black', font=font_medium)
     y += 50
     combined.paste(img1, (0, y))
     y += img1.height
 
     # 6. 粘贴概率曲线（带子标题）
-    draw.text((20, y), "Total Points → Probability Curve", fill='black', font=font_medium)
+    draw.text((1000, y), "Total Points → Probability Curve", fill='black', font=font_medium)
     y += 50
     combined.paste(img2, (0, y))
 
