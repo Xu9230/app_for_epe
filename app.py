@@ -339,16 +339,12 @@ def plot_probability_curve(total_score, prob_case):
     plt.tight_layout()
     return fig
 
-import matplotlib.pyplot as plt
-from io import BytesIO
-from PIL import Image
-from datetime import datetime
-
 def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     """
-    使用matplotlib创建信息区，并与两个图垂直拼接，确保文字清晰
+    将两个图垂直合并，并在顶部添加标题、日期、输入参数、结果，
+    在两个图上方分别添加子标题，整体紧凑排列。
     """
-    # 1. 将两个图转为PIL Image
+    # 1. 将两个图分别转为 PIL Image
     buf1 = BytesIO()
     fig_nomogram.savefig(buf1, format='png', dpi=dpi, bbox_inches='tight')
     buf1.seek(0)
@@ -359,47 +355,115 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     buf2.seek(0)
     img2 = Image.open(buf2)
 
-    # 2. 创建信息区（顶部信息）
-    info_fig, ax = plt.subplots(figsize=(img1.width/dpi, 2.5))  # 高度固定2.5英寸
-    ax.axis('off')
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
+    # ========== 可调参数区（您可以根据需要修改这些数值） ==========
+    # 字体大小（单位：磅）
+    title_font_size = 50       # 页面主标题
+    info_font_size = 36        # 日期、输入、结果
+    section_font_size = 36     # 子图标题（Nomogram... 和 Total Points...）
 
-    # 构建文字（使用matplotlib，字体稳健）
-    lines = []
-    lines.append("Extraprostatic Extension Risk Calculator")
-    lines.append(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    # 行高系数（用于计算每行占用的垂直空间，通常设为 1.2 ~ 1.5）
+    line_height_ratio = 1.3
+
+    # 各模块之间的额外间距（像素）
+    spacing_after_title = 10    # 标题与日期之间
+    spacing_after_date = 10     # 日期与输入信息之间
+    spacing_after_input = 10    # 输入信息与结果之间
+    spacing_after_result = 20   # 结果与分隔线之间
+    spacing_after_line = 10     # 分隔线与第一个子图标题之间
+    spacing_before_img = 10     # 子图标题与图片之间
+    spacing_between_sections = 10  # 列线图与概率曲线之间的额外间距（在子标题之间）
+    bottom_padding = 30         # 图片底部留白
+
+    # 顶部边距（页面最上方到主标题的距离）
+    top_padding = 20
+    # ============================================================
+
+    # 加载字体（使用已确认存在的 Arial）
+    try:
+        title_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", title_font_size)
+        info_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", info_font_size)
+        section_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", section_font_size)
+    except:
+        # 备用字体
+        try:
+            title_font = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", title_font_size)
+            info_font = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", info_font_size)
+            section_font = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", section_font_size)
+        except:
+            title_font = info_font = section_font = ImageFont.load_default()
+
+    # 计算行高（近似）
+    line_height_title = int(title_font_size * line_height_ratio)
+    line_height_info = int(info_font_size * line_height_ratio)
+    line_height_section = int(section_font_size * line_height_ratio)
+
+    # 顶部信息区高度
+    info_height = (top_padding +
+                   line_height_title + spacing_after_title +
+                   line_height_info + spacing_after_date +
+                   line_height_info + spacing_after_input +
+                   line_height_info + spacing_after_result +
+                   spacing_after_line)
+
+    # 每个子图标题占用的高度（标题行 + 与图片的间距）
+    section_title_height = line_height_section + spacing_before_img
+
+    # 总宽度取两个图的最大宽度
+    max_width = max(img1.width, img2.width)
+
+    # 总高度计算：顶部信息 + 第一个子图标题 + 列线图 + 第二个子图标题 + 概率曲线 + 底部留白
+    total_height = (info_height +
+                    section_title_height + img1.height +
+                    section_title_height + img2.height +
+                    spacing_between_sections + bottom_padding)
+
+    # 创建白色画布
+    combined = Image.new('RGB', (max_width, total_height), 'white')
+    draw = ImageDraw.Draw(combined)
+
+    # 当前绘制 Y 坐标（从上往下递增）
+    y = top_padding
+
+    # ---- 绘制顶部信息 ----
+    # 主标题
+    draw.text((20, y), "Extraprostatic Extension Risk Calculator", fill='black', font=title_font)
+    y += line_height_title + spacing_after_title
+
+    # 日期
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    draw.text((20, y), f"Date: {now}", fill='black', font=info_font)
+    y += line_height_info + spacing_after_date
+
+    # 输入参数
     info = (f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, "
             f"CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
             f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}")
-    lines.append(info)
-    lines.append(f"Total Points: {total_score:.1f}, Probability: {prob:.3f}")
+    draw.text((20, y), info, fill='black', font=info_font)
+    y += line_height_info + spacing_after_input
 
-    # 依次绘制文字（左对齐，垂直间隔）
-    y_start = 0.85
-    y_step = 0.1
-    fontsize = 18  # 可调整
-    for i, line in enumerate(lines):
-        y = y_start - i * y_step
-        ax.text(0.02, y, line, fontsize=fontsize, fontname='Arial', verticalalignment='top', 
-                transform=ax.transAxes, color='black', weight='bold' if i==0 else 'normal')
+    # 预测结果
+    result = f"Total Points: {total_score:.1f}, Probability: {prob:.3f}"
+    draw.text((20, y), result, fill='black', font=info_font)
+    y += line_height_info + spacing_after_result
 
-    plt.tight_layout(pad=0)
-    # 转为PIL Image
-    buf_info = BytesIO()
-    info_fig.savefig(buf_info, format='png', dpi=dpi, bbox_inches='tight')
-    buf_info.seek(0)
-    img_info = Image.open(buf_info)
+    # 分隔线
+    draw.line((0, y, max_width, y), fill='gray', width=3)
+    y += spacing_after_line
 
-    # 3. 拼接：信息图在上，列线图，概率曲线
-    max_width = max(img_info.width, img1.width, img2.width)
-    total_height = img_info.height + img1.height + img2.height
+    # ---- 粘贴列线图（带子标题） ----
+    draw.text((20, y), "Nomogram with Current Case", fill='black', font=section_font)
+    y += line_height_section + spacing_before_img
+    combined.paste(img1, (0, y))
+    y += img1.height
 
-    combined = Image.new('RGB', (max_width, total_height), 'white')
-    combined.paste(img_info, (0, 0))
-    combined.paste(img1, (0, img_info.height))
-    combined.paste(img2, (0, img_info.height + img1.height))
+    # ---- 粘贴概率曲线（带子标题） ----
+    # 在两张图之间加入额外间距（如果不需要，设为0）
+    y += spacing_between_sections
+    draw.text((20, y), "Total Points → Probability Curve", fill='black', font=section_font)
+    y += line_height_section + spacing_before_img
+    combined.paste(img2, (0, y))
 
+    # 保存为 PNG
     buf_combined = BytesIO()
     combined.save(buf_combined, format='PNG', dpi=(dpi, dpi))
     buf_combined.seek(0)
