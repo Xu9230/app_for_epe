@@ -327,29 +327,30 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         buf2.seek(0)
         img2 = Image.open(buf2)
 
-        # 使用 Matplotlib 生成信息区（排版分两行）
-        info_width = 16
+        # ========== 获取列线图的宽度（英寸），使信息区宽度与之匹配 ==========
+        nomogram_width_inch = fig_nomogram.get_size_inches()[0]  # 列线图宽度（英寸）
+        # ================================================================
+
+        # 使用 Matplotlib 生成信息区，宽度与列线图一致
         lines = [
             ("Extraprostatic Extension Risk Calculator", 30, 'bold'),
             (f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", 20, 'normal'),
-            # ---- 第一行：临床变量 ----
             (f"Clinical: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL", 20, 'normal'),
-            # ---- 第二行：语义特征 ----
             (f"MRI: CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
              f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}", 20, 'normal'),
             (f"Total Points: {total_score:.1f}, Probability: {prob:.3f}", 20, 'normal')
         ]
 
-        # 增加顶部边距，使日期整体下移
-        top_margin_extra = 0.08   # 增加额外顶部空间
-        line_heights = [30*1.5, 20*1.5, 20*1.5, 20*1.5, 20*1.5]  # 5行
-        total_info_height = sum(line_heights) + 100  # 增加总高度
-        fig_info, ax_info = plt.subplots(figsize=(info_width, total_info_height/100))
+        # 计算信息区高度（根据字号和行数）
+        top_margin_extra = 0.08
+        line_heights = [30*1.5, 20*1.5, 20*1.5, 20*1.5, 20*1.5]
+        total_info_height = sum(line_heights) + 100
+        # 宽度使用列线图宽度，高度按比例计算
+        fig_info, ax_info = plt.subplots(figsize=(nomogram_width_inch, total_info_height/100))
         ax_info.axis('off')
         ax_info.set_xlim(0, 1)
         ax_info.set_ylim(0, 1)
 
-        # 调整起始 y 坐标，增加与标题的距离
         y_start = 0.95 - top_margin_extra
         y_step = 0.18
         for i, (text, size, weight) in enumerate(lines):
@@ -364,7 +365,7 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         img_info = Image.open(buf_info)
         plt.close(fig_info)
 
-        # 垂直拼接
+        # 垂直拼接（现在信息区宽度与列线图一致，最大宽度即为列线图宽度）
         max_width = max(img_info.width, img1.width, img2.width)
         total_height = img_info.height + img1.height + img2.height + 20
         combined = Image.new('RGB', (max_width, total_height), 'white')
@@ -389,6 +390,8 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         dummy.save(buf, format='PNG')
         buf.seek(0)
         return buf
+
+ 
 
 # ============================================================
 # 5. Streamlit 界面（网页布局，改为上下两行）
