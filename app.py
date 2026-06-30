@@ -4,10 +4,16 @@ import matplotlib.pyplot as plt
 from scipy.special import expit
 from datetime import datetime
 from io import BytesIO
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 # ============================================================
-# 1. 模型参数（与列线图代码完全一致）
+# 全局字体设置（Arial）
+# ============================================================
+plt.rcParams['font.family'] = 'Arial'
+plt.rcParams['axes.unicode_minus'] = False  # 正确显示负号
+
+# ============================================================
+# 1. 模型参数
 # ============================================================
 intercept = -1.859
 coef = {
@@ -101,7 +107,7 @@ def inv_calc_points(var, points):
         return None
 
 # ============================================================
-# 2. 绘图函数：列线图（含红点标记）
+# 2. 绘图函数：列线图（字体大小符合要求）
 # ============================================================
 def plot_nomogram(case):
     figsize = (12, 11)
@@ -117,8 +123,9 @@ def plot_nomogram(case):
     y_total  = y_retract - axis_gap
     y_prob   = y_total  - axis_gap
 
-    label_fontsize = 18
-    tick_fontsize = 14
+    # 字体大小设定
+    label_fontsize = 16     # 变量名（轴标签）
+    tick_fontsize = 16      # 刻度数字
     text_color = 'black'
     line_color = 'black'
     line_width = 1.5
@@ -265,11 +272,11 @@ def plot_nomogram(case):
     ax.text(point_prob_clipped + 2, y_prob - 0.1, f'{prob_case:.3f}', fontsize=12,
             color='red', ha='left', va='top', fontweight='bold')
 
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)  # 控制边距
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
     return fig, total_score, prob_case
 
 # ============================================================
-# 3. 概率曲线图
+# 3. 概率曲线图（字体大小16）
 # ============================================================
 def plot_probability_curve(total_score, prob_case):
     fig, ax = plt.subplots(figsize=(10, 5))
@@ -277,8 +284,9 @@ def plot_probability_curve(total_score, prob_case):
     logit_all = logit_baseline + t_all / scale
     prob_all = expit(logit_all)
     ax.plot(t_all, prob_all, 'b-', lw=2)
-    ax.set_xlabel('Total Points', fontsize=18)
-    ax.set_ylabel('Probability', fontsize=18)
+    ax.set_xlabel('Total Points', fontsize=16)
+    ax.set_ylabel('Probability', fontsize=16)
+    ax.tick_params(labelsize=16)  # 刻度数字
     ax.set_xlim(0, MAX_POINTS * 1.2)
     ax.set_ylim(0, 1.02)
     ax.set_yticks(np.arange(0, 1.01, 0.1))
@@ -299,7 +307,7 @@ def plot_probability_curve(total_score, prob_case):
     return fig
 
 # ============================================================
-# 4. 合并图片函数（用于下载）
+# 4. 下载图片生成（使用 Matplotlib 信息区，字体大小30/20/16）
 # ============================================================
 def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     try:
@@ -314,47 +322,41 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         buf2.seek(0)
         img2 = Image.open(buf2)
 
-        # ========== 使用 Matplotlib 生成顶部信息区 ==========
-        fig_info, ax_info = plt.subplots(figsize=(20, 2))   # 宽20英寸，高2英寸（可根据文字长度调整）
+        # 2. 使用 Matplotlib 生成信息区
+        # 宽度根据列线图宽度调整，高度根据文字行数动态计算
+        info_width = 16  # inches
+        lines = [
+            ("Extraprostatic Extension Risk Calculator", 30, 'bold'),
+            (f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", 20, 'normal'),
+            (f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}", 20, 'normal'),
+            (f"Total Points: {total_score:.1f}, Probability: {prob:.3f}", 20, 'normal')
+        ]
+        # 预估高度：每行高度约等于字号*1.5，加上标题额外空间
+        line_heights = [30*1.5, 20*1.5, 20*1.5, 20*1.5]
+        info_height = sum(line_heights) + 60  # 加上边距和分隔线
+        fig_info, ax_info = plt.subplots(figsize=(info_width, info_height/100))  # 转换为 inches，但实际高度以像素为准，这里用近似值
         ax_info.axis('off')
         ax_info.set_xlim(0, 1)
         ax_info.set_ylim(0, 1)
 
-        # 构建文本
-        now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        info_text = (f"Date: {now}\n"
-                     f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, "
-                     f"CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
-                     f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}\n"
-                     f"Total Points: {total_score:.1f}, Probability: {prob:.3f}")
+        y_start = 0.95
+        y_step = 0.2
+        for i, (text, size, weight) in enumerate(lines):
+            ax_info.text(0.01, y_start - i*y_step, text, fontsize=size, va='top', 
+                        fontweight=weight, family='Arial')
+        # 分隔线
+        ax_info.axhline(y=0.05, color='gray', linewidth=2)
 
-        ax_info.text(0.01, 0.9, "Extraprostatic Extension Risk Calculator", fontsize=28, fontweight='bold', va='top')
-        ax_info.text(0.01, 0.6, now, fontsize=22, va='top')
-        ax_info.text(0.01, 0.35, f"Input: ...", fontsize=22, va='top')  # 完整信息，但这里我们分段显示
-        # 更精确：直接用多行文本
-        lines = [
-            f"Date: {now}",
-            f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}",
-            f"Total Points: {total_score:.1f}, Probability: {prob:.3f}"
-        ]
-        y_start = 0.9
-        y_step = 0.25
-        for i, line in enumerate(lines):
-            ax_info.text(0.01, y_start - i*y_step, line, fontsize=22, va='top', fontfamily='DejaVu Sans')
-        
-        plt.tight_layout(pad=0)
-        # 将信息区保存为图片
+        plt.tight_layout(pad=0.1)
         buf_info = BytesIO()
-        fig_info.savefig(buf_info, format='png', dpi=dpi, bbox_inches='tight', pad_inches=0.05)
+        fig_info.savefig(buf_info, format='png', dpi=dpi, bbox_inches='tight')
         buf_info.seek(0)
         img_info = Image.open(buf_info)
         plt.close(fig_info)
 
-        # 2. 垂直拼接：信息区 + 列线图 + 概率曲线（中间加小间距）
-        widths = [img_info.width, img1.width, img2.width]
-        max_width = max(widths)
-        total_height = img_info.height + img1.height + img2.height + 20  # 20像素间距
-
+        # 3. 垂直拼接
+        max_width = max(img_info.width, img1.width, img2.width)
+        total_height = img_info.height + img1.height + img2.height + 20
         combined = Image.new('RGB', (max_width, total_height), 'white')
         y_offset = 0
         combined.paste(img_info, (0, y_offset))
@@ -379,13 +381,38 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         return buf
 
 # ============================================================
-# 5. Streamlit 界面
+# 5. Streamlit 界面（带 CSS 调整标题字体大小）
 # ============================================================
 st.set_page_config(page_title="Extraprostatic Extension Risk Calculator", layout="wide")
 
-# ---------- 在网页左上角显示当前日期 ----------
+# 自定义 CSS 控制标题字体大小
+st.markdown("""
+<style>
+    /* 主标题（h1）字体大小 30 */
+    h1 {
+        font-size: 30px !important;
+        font-family: Arial, sans-serif !important;
+    }
+    /* 所有子标题（h2）字体大小 20 */
+    h2 {
+        font-size: 20px !important;
+        font-family: Arial, sans-serif !important;
+    }
+    /* 其他文字（输入框标签等）采用默认，但 Arial 已在全局设定 */
+    .stNumberInput label, .stCheckbox label {
+        font-family: Arial, sans-serif !important;
+    }
+    /* 日期显示 */
+    .date-text {
+        font-size: 16px;
+        font-family: Arial, sans-serif;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# 显示当前日期（字体16）
 current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-st.markdown(f"**Date: {current_date}**")
+st.markdown(f'<p class="date-text"><strong>Date: {current_date}</strong></p>', unsafe_allow_html=True)
 
 st.title("Extraprostatic Extension Risk Calculator")
 st.markdown("Predict the probability of extraprostatic extension using MRI semantic features and clinical variables")
@@ -400,10 +427,16 @@ with col1:
 with col2:
     st.subheader("MRI Semantic Features")
     cclmax = st.number_input("Maximum Capsular Contact Length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f")
-    bulge = st.checkbox("Capsular Bulging", value=False)
-    disruption = st.checkbox("Capsular Disruption", value=False)
-    retraction = st.checkbox("Capsular Retraction", value=False)
+    # 三个定性指标横向排列（使用三列）
+    col_bulge, col_disrupt, col_retract = st.columns(3)
+    with col_bulge:
+        bulge = st.checkbox("Bulging", value=False)
+    with col_disrupt:
+        disruption = st.checkbox("Disruption", value=False)
+    with col_retract:
+        retraction = st.checkbox("Retraction", value=False)
 
+# 构建病例字典
 case = {
     "f/tPSA": ftpsa,
     "fPSA": fpsa,
@@ -431,7 +464,7 @@ st.subheader("Total Points → Probability Curve")
 fig_curve = plot_probability_curve(total_score, prob)
 st.pyplot(fig_curve)
 
-# ---------- 下载按钮 ----------
+# 下载按钮
 buf = combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600)
 st.download_button(
     label="📥 Download Full Image (600 DPI)",
