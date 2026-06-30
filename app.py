@@ -303,6 +303,7 @@ def plot_probability_curve(total_score, prob_case):
 # ============================================================
 def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     try:
+        # 1. 将列线图和概率曲线转为 PIL Image
         buf1 = BytesIO()
         fig_nomogram.savefig(buf1, format='png', dpi=dpi, bbox_inches='tight')
         buf1.seek(0)
@@ -313,85 +314,54 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         buf2.seek(0)
         img2 = Image.open(buf2)
 
-        # ---------- 可调排版参数 ----------
-        title_font_size = 50
-        info_font_size = 36
-        section_font_size = 36
-        line_height_ratio = 1.3
-        spacing_after_title = 10
-        spacing_after_date = 10
-        spacing_after_input = 10
-        spacing_after_result = 20
-        spacing_after_line = 10
-        spacing_before_img = 10
-        spacing_between_sections = 5
-        top_padding = 20
-        bottom_padding = 30
-        # ---------------------------------
+        # ========== 使用 Matplotlib 生成顶部信息区 ==========
+        fig_info, ax_info = plt.subplots(figsize=(20, 2))   # 宽20英寸，高2英寸（可根据文字长度调整）
+        ax_info.axis('off')
+        ax_info.set_xlim(0, 1)
+        ax_info.set_ylim(0, 1)
 
-        try:
-            title_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", title_font_size)
-            info_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", info_font_size)
-            section_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", section_font_size)
-        except:
-            try:
-                title_font = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", title_font_size)
-                info_font = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", info_font_size)
-                section_font = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", section_font_size)
-            except:
-                title_font = info_font = section_font = ImageFont.load_default()
+        # 构建文本
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        info_text = (f"Date: {now}\n"
+                     f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, "
+                     f"CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
+                     f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}\n"
+                     f"Total Points: {total_score:.1f}, Probability: {prob:.3f}")
 
-        line_height_title = int(title_font_size * line_height_ratio)
-        line_height_info = int(info_font_size * line_height_ratio)
-        line_height_section = int(section_font_size * line_height_ratio)
+        ax_info.text(0.01, 0.9, "Extraprostatic Extension Risk Calculator", fontsize=28, fontweight='bold', va='top')
+        ax_info.text(0.01, 0.6, now, fontsize=22, va='top')
+        ax_info.text(0.01, 0.35, f"Input: ...", fontsize=22, va='top')  # 完整信息，但这里我们分段显示
+        # 更精确：直接用多行文本
+        lines = [
+            f"Date: {now}",
+            f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}",
+            f"Total Points: {total_score:.1f}, Probability: {prob:.3f}"
+        ]
+        y_start = 0.9
+        y_step = 0.25
+        for i, line in enumerate(lines):
+            ax_info.text(0.01, y_start - i*y_step, line, fontsize=22, va='top', fontfamily='DejaVu Sans')
+        
+        plt.tight_layout(pad=0)
+        # 将信息区保存为图片
+        buf_info = BytesIO()
+        fig_info.savefig(buf_info, format='png', dpi=dpi, bbox_inches='tight', pad_inches=0.05)
+        buf_info.seek(0)
+        img_info = Image.open(buf_info)
+        plt.close(fig_info)
 
-        info_height = (top_padding +
-                       line_height_title + spacing_after_title +
-                       line_height_info + spacing_after_date +
-                       line_height_info + spacing_after_input +
-                       line_height_info + spacing_after_result +
-                       spacing_after_line)
-
-        section_title_height = line_height_section + spacing_before_img
-        max_width = max(img1.width, img2.width)
-        total_height = (info_height +
-                        section_title_height + img1.height +
-                        section_title_height + img2.height +
-                        spacing_between_sections + bottom_padding)
+        # 2. 垂直拼接：信息区 + 列线图 + 概率曲线（中间加小间距）
+        widths = [img_info.width, img1.width, img2.width]
+        max_width = max(widths)
+        total_height = img_info.height + img1.height + img2.height + 20  # 20像素间距
 
         combined = Image.new('RGB', (max_width, total_height), 'white')
-        draw = ImageDraw.Draw(combined)
-
-        y = top_padding
-        draw.text((20, y), "Extraprostatic Extension Risk Calculator", fill='black', font=title_font)
-        y += line_height_title + spacing_after_title
-
-        now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        draw.text((20, y), f"Date: {now}", fill='black', font=info_font)
-        y += line_height_info + spacing_after_date
-
-        info = (f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, "
-                f"CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
-                f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}")
-        draw.text((20, y), info, fill='black', font=info_font)
-        y += line_height_info + spacing_after_input
-
-        result = f"Total Points: {total_score:.1f}, Probability: {prob:.3f}"
-        draw.text((20, y), result, fill='black', font=info_font)
-        y += line_height_info + spacing_after_result
-
-        draw.line((0, y, max_width, y), fill='gray', width=3)
-        y += spacing_after_line
-
-        draw.text((20, y), "Nomogram with Current Case", fill='black', font=section_font)
-        y += line_height_section + spacing_before_img
-        combined.paste(img1, (0, y))
-        y += img1.height
-
-        y += spacing_between_sections
-        draw.text((20, y), "Total Points → Probability Curve", fill='black', font=section_font)
-        y += line_height_section + spacing_before_img
-        combined.paste(img2, (0, y))
+        y_offset = 0
+        combined.paste(img_info, (0, y_offset))
+        y_offset += img_info.height + 10
+        combined.paste(img1, (0, y_offset))
+        y_offset += img1.height + 10
+        combined.paste(img2, (0, y_offset))
 
         buf_combined = BytesIO()
         combined.save(buf_combined, format='PNG', dpi=(dpi, dpi))
@@ -400,6 +370,8 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
 
     except Exception as e:
         st.error(f"生成图片时出错：{e}")
+        import traceback
+        st.error(traceback.format_exc())
         dummy = Image.new('RGB', (100, 100), 'white')
         buf = BytesIO()
         dummy.save(buf, format='PNG')
