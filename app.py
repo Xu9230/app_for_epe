@@ -353,39 +353,51 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     buf2.seek(0)
     img2 = Image.open(buf2)
 
-    # 2. 计算合并尺寸（顶部预留 200 像素高度用于文字）
+    # 2. 计算合并尺寸（顶部预留 300 像素高度，以便容纳大字）
     max_width = max(img1.width, img2.width)
-    top_margin = 200   # 从 150 增大到 200
+    top_margin = 300   # 原 150 → 300
     total_height = img1.height + img2.height + top_margin
 
     combined = Image.new('RGB', (max_width, total_height), 'white')
     combined.paste(img1, (0, top_margin))
     combined.paste(img2, (0, top_margin + img1.height))
 
-    # 3. 绘制文字信息
+    # 3. 绘制文字信息（尝试多种字体）
     draw = ImageDraw.Draw(combined)
-    # 尝试使用 Arial 字体，若不存在则用默认（字号从 20 增大到 32）
-    try:
-        font = ImageFont.truetype("arial.ttf", 32)
-    except:
-        font = ImageFont.load_default()
+    # 按照 Windows / Linux / macOS 的常见字体路径依次尝试
+    font_paths = [
+        "C:/Windows/Fonts/simhei.ttf",        # Windows 黑体
+        "C:/Windows/Fonts/msyh.ttf",          # Windows 微软雅黑
+        "/System/Library/Fonts/PingFang.ttc", # macOS
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"  # Linux
+    ]
+    font = None
+    for path in font_paths:
+        try:
+            font = ImageFont.truetype(path, 40)   # 字号从 32 增大到 40
+            break
+        except:
+            continue
+    if font is None:
+        # 如果所有字体都找不到，使用默认字体（但只能调整像素大小，效果有限）
+        font = ImageFont.load_default().font_variant(size=40)
 
-    # 左上角：日期
+    # 左上角：日期（Y=10）
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     draw.text((10, 10), f"Date: {now}", fill='black', font=font)
 
-    # 第二行：所有输入变量（Y 坐标从 45 调至 60）
+    # 第二行：所有输入变量（Y=60）
     info = (f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, "
             f"CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
             f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}")
     draw.text((10, 60), info, fill='black', font=font)
 
-    # 第三行：预测结果（Y 坐标从 80 调至 110）
+    # 第三行：预测结果（Y=115，与前一行保持约55像素间距）
     result = f"Total Points: {total_score:.1f}, Probability: {prob:.3f}"
-    draw.text((10, 110), result, fill='black', font=font)
+    draw.text((10, 115), result, fill='black', font=font)
 
-    # 分隔线（Y 坐标从 140 调至 180，与 top_margin 保持一致）
-    draw.line((0, 180, max_width, 180), fill='gray', width=2)
+    # 分隔线（Y=180，位于所有文字下方）
+    draw.line((0, 180, max_width, 180), fill='gray', width=3)
 
     # 4. 保存为 PNG
     buf_combined = BytesIO()
