@@ -338,9 +338,6 @@ def plot_probability_curve(total_score, prob_case):
     plt.tight_layout()
     return fig
 
-# ============================================================
-# 4. 合并图片函数（供下载）
-# ============================================================
 def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     """
     将两个图垂直合并，并在顶部添加日期、输入参数和结果信息
@@ -356,9 +353,9 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     buf2.seek(0)
     img2 = Image.open(buf2)
 
-    # 2. 计算合并尺寸（顶部预留 150 像素高度用于文字）
+    # 2. 计算合并尺寸（顶部预留 200 像素高度用于文字）
     max_width = max(img1.width, img2.width)
-    top_margin = 150
+    top_margin = 200   # 从 150 增大到 200
     total_height = img1.height + img2.height + top_margin
 
     combined = Image.new('RGB', (max_width, total_height), 'white')
@@ -367,9 +364,9 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
 
     # 3. 绘制文字信息
     draw = ImageDraw.Draw(combined)
-    # 尝试使用 Arial 字体（若不存在则用默认）
+    # 尝试使用 Arial 字体，若不存在则用默认（字号从 20 增大到 32）
     try:
-        font = ImageFont.truetype("arial.ttf", 20)
+        font = ImageFont.truetype("arial.ttf", 32)
     except:
         font = ImageFont.load_default()
 
@@ -377,18 +374,18 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     draw.text((10, 10), f"Date: {now}", fill='black', font=font)
 
-    # 第二行：所有输入变量
+    # 第二行：所有输入变量（Y 坐标从 45 调至 60）
     info = (f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, "
             f"CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
             f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}")
-    draw.text((10, 45), info, fill='black', font=font)
+    draw.text((10, 60), info, fill='black', font=font)
 
-    # 第三行：预测结果
+    # 第三行：预测结果（Y 坐标从 80 调至 110）
     result = f"Total Points: {total_score:.1f}, Probability: {prob:.3f}"
-    draw.text((10, 80), result, fill='black', font=font)
+    draw.text((10, 110), result, fill='black', font=font)
 
-    # 画一条分隔线（美观）
-    draw.line((0, 140, max_width, 140), fill='gray', width=2)
+    # 分隔线（Y 坐标从 140 调至 180，与 top_margin 保持一致）
+    draw.line((0, 180, max_width, 180), fill='gray', width=2)
 
     # 4. 保存为 PNG
     buf_combined = BytesIO()
