@@ -340,7 +340,8 @@ def plot_probability_curve(total_score, prob_case):
 
 def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     """
-    将两个图垂直合并，并在顶部添加日期、输入参数和结果信息
+    将两个图垂直合并，并在顶部添加标题、日期、输入参数、结果，
+    在两个图上方分别添加子标题，并紧凑排列。
     """
     # 1. 将两个图分别转为 PIL Image
     buf1 = BytesIO()
@@ -353,57 +354,107 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     buf2.seek(0)
     img2 = Image.open(buf2)
 
-    # 2. 计算合并尺寸（顶部预留 300 像素高度，以便容纳大字）
-    max_width = max(img1.width, img2.width)
-    top_margin = 300   # 原 150 → 300
-    total_height = img1.height + img2.height + top_margin
+    # 2. 设置字体大小（与列线图文字匹配）
+    title_font_size = 60      # 应用标题
+    info_font_size = 40       # 日期、输入、结果
+    section_font_size = 40    # 子图标题
 
-    combined = Image.new('RGB', (max_width, total_height), 'white')
-    combined.paste(img1, (0, top_margin))
-    combined.paste(img2, (0, top_margin + img1.height))
-
-    # 3. 绘制文字信息（尝试多种字体）
-    draw = ImageDraw.Draw(combined)
-    # 按照 Windows / Linux / macOS 的常见字体路径依次尝试
+    # 尝试加载系统字体（优先黑体/雅黑）
     font_paths = [
-        "C:/Windows/Fonts/simhei.ttf",        # Windows 黑体
-        "C:/Windows/Fonts/msyh.ttf",          # Windows 微软雅黑
-        "/System/Library/Fonts/PingFang.ttc", # macOS
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"  # Linux
+        "C:/Windows/Fonts/simhei.ttf",
+        "C:/Windows/Fonts/msyh.ttf",
+        "/System/Library/Fonts/PingFang.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
     ]
-    font = None
+    title_font = info_font = section_font = None
     for path in font_paths:
         try:
-            font = ImageFont.truetype(path, 40)   # 字号从 32 增大到 40
+            title_font = ImageFont.truetype(path, title_font_size)
+            info_font = ImageFont.truetype(path, info_font_size)
+            section_font = ImageFont.truetype(path, section_font_size)
             break
         except:
             continue
-    if font is None:
-        # 如果所有字体都找不到，使用默认字体（但只能调整像素大小，效果有限）
-        font = ImageFont.load_default().font_variant(size=40)
+    if title_font is None:
+        # 降级使用默认字体（可能无法调整大小）
+        title_font = ImageFont.load_default()
+        info_font = ImageFont.load_default()
+        section_font = ImageFont.load_default()
 
-    # 左上角：日期（Y=10）
+    # 3. 计算各行文字高度（近似）
+    line_height_title = int(title_font_size * 1.3)
+    line_height_info = int(info_font_size * 1.3)
+    line_height_section = int(section_font_size * 1.3)
+
+    # 顶部信息区高度：顶部边距 + 应用标题 + 日期 + 输入 + 结果 + 分隔线
+    top_padding = 20
+    info_height = (top_padding +
+                   line_height_title + 10 +
+                   line_height_info + 10 +
+                   line_height_info + 10 +
+                   line_height_info + 20 +
+                   10)  # 最后10为分隔线下方间隙
+
+    # 子图标题高度
+    section_title_height = line_height_section + 10
+
+    # 画布宽度取两个图的最大宽度
+    max_width = max(img1.width, img2.width)
+
+    # 总高度
+    total_height = (info_height +
+                    section_title_height + img1.height +
+                    section_title_height + img2.height +
+                    20)  # 底部边距
+
+    combined = Image.new('RGB', (max_width, total_height), 'white')
+    draw = ImageDraw.Draw(combined)
+
+    # 4. 绘制顶部信息
+    y = top_padding
+
+    # 应用标题
+    draw.text((20, y), "Extraprostatic Extension Risk Calculator", fill='black', font=title_font)
+    y += line_height_title + 10
+
+    # 日期
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    draw.text((10, 10), f"Date: {now}", fill='black', font=font)
+    draw.text((20, y), f"Date: {now}", fill='black', font=info_font)
+    y += line_height_info + 10
 
-    # 第二行：所有输入变量（Y=60）
+    # 输入参数
     info = (f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, "
             f"CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
             f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}")
-    draw.text((10, 60), info, fill='black', font=font)
+    draw.text((20, y), info, fill='black', font=info_font)
+    y += line_height_info + 10
 
-    # 第三行：预测结果（Y=115，与前一行保持约55像素间距）
+    # 预测结果
     result = f"Total Points: {total_score:.1f}, Probability: {prob:.3f}"
-    draw.text((10, 115), result, fill='black', font=font)
+    draw.text((20, y), result, fill='black', font=info_font)
+    y += line_height_info + 20
 
-    # 分隔线（Y=180，位于所有文字下方）
-    draw.line((0, 180, max_width, 180), fill='gray', width=3)
+    # 分隔线
+    draw.line((0, y, max_width, y), fill='gray', width=3)
+    y += 10
 
-    # 4. 保存为 PNG
+    # 5. 粘贴列线图（带子标题）
+    draw.text((20, y), "Nomogram with Current Case", fill='black', font=section_font)
+    y += line_height_section + 10
+    combined.paste(img1, (0, y))
+    y += img1.height
+
+    # 6. 粘贴概率曲线（带子标题）
+    draw.text((20, y), "Total Points → Probability Curve", fill='black', font=section_font)
+    y += line_height_section + 10
+    combined.paste(img2, (0, y))
+
+    # 7. 保存为 PNG
     buf_combined = BytesIO()
     combined.save(buf_combined, format='PNG', dpi=(dpi, dpi))
     buf_combined.seek(0)
     return buf_combined
+    
 # ============================================================
 # 4. Streamlit 界面
 # ============================================================
