@@ -326,7 +326,7 @@ def plot_probability_curve(total_score, prob_case):
     cutoff_prob = 0.351
     cutoff_score = (np.log(cutoff_prob / (1 - cutoff_prob)) - logit_baseline) * scale
     ax.axhline(y=cutoff_prob, color='red', linestyle='--', linewidth=1.5)
-    ax.text(-0.4, cutoff_prob, f'{cutoff_prob:.3f}',
+    ax.text(-0.4, cutoff_prob-0.01, f'{cutoff_prob:.3f}',
             color='red', fontsize=10, ha='right')
     # ax.axvline(x=cutoff_score, color='red', linestyle='--', linewidth=1.0, alpha=0.5)
 
