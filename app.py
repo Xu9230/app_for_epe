@@ -10,7 +10,7 @@ from PIL import Image
 # 全局字体设置（Arial）
 # ============================================================
 plt.rcParams['font.family'] = 'Arial'
-plt.rcParams['axes.unicode_minus'] = False  # 正确显示负号
+plt.rcParams['axes.unicode_minus'] = False
 
 # ============================================================
 # 1. 模型参数
@@ -107,7 +107,7 @@ def inv_calc_points(var, points):
         return None
 
 # ============================================================
-# 2. 绘图函数：列线图（字体大小符合要求）
+# 2. 绘图函数：列线图（含红点标记 + 嵌入标题）
 # ============================================================
 def plot_nomogram(case):
     figsize = (12, 11)
@@ -123,9 +123,10 @@ def plot_nomogram(case):
     y_total  = y_retract - axis_gap
     y_prob   = y_total  - axis_gap
 
-    # 字体大小设定
-    label_fontsize = 16     # 变量名（轴标签）
-    tick_fontsize = 16      # 刻度数字
+    # 字体大小
+    label_fontsize = 16
+    tick_fontsize = 16
+    title_fontsize = 20      # 子图标题字体
     text_color = 'black'
     line_color = 'black'
     line_width = 1.5
@@ -150,6 +151,11 @@ def plot_nomogram(case):
     ax.set_xlim(-left_margin, MAX_POINTS + 10)
     ax.set_ylim(-0.5, y_points + 1.5)
     ax.axis('off')
+
+    # ---- 在图形顶部添加标题 ----
+    ax.text(0, y_points + 0.7, "Nomogram with Current Case Marked",
+            fontsize=title_fontsize, fontweight='bold', ha='left', va='bottom',
+            color='black', family='Arial')
 
     def get_tick_offsets(direction):
         if direction == 'up':
@@ -272,11 +278,12 @@ def plot_nomogram(case):
     ax.text(point_prob_clipped + 2, y_prob - 0.1, f'{prob_case:.3f}', fontsize=12,
             color='red', ha='left', va='top', fontweight='bold')
 
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+    # 调整边距，为标题留空间（top 增大）
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.97, bottom=0.05)
     return fig, total_score, prob_case
 
 # ============================================================
-# 3. 概率曲线图（字体大小16）
+# 3. 概率曲线图（嵌入标题）
 # ============================================================
 def plot_probability_curve(total_score, prob_case):
     fig, ax = plt.subplots(figsize=(10, 5))
@@ -286,11 +293,14 @@ def plot_probability_curve(total_score, prob_case):
     ax.plot(t_all, prob_all, 'b-', lw=2)
     ax.set_xlabel('Total Points', fontsize=16)
     ax.set_ylabel('Probability', fontsize=16)
-    ax.tick_params(labelsize=16)  # 刻度数字
+    ax.tick_params(labelsize=16)
     ax.set_xlim(0, MAX_POINTS * 1.2)
     ax.set_ylim(0, 1.02)
     ax.set_yticks(np.arange(0, 1.01, 0.1))
     ax.grid(alpha=0.2)
+
+    # ---- 添加图形标题 ----
+    ax.set_title("Total Points → Probability Curve", fontsize=20, fontweight='bold', pad=15, family='Arial')
 
     ax.plot(total_score, prob_case, 'ro', markersize=12, markeredgecolor='darkred')
     ax.text(total_score + 2, prob_case - 0.02,
@@ -303,15 +313,15 @@ def plot_probability_curve(total_score, prob_case):
     ax.text(-0.4, cutoff_prob-0.01, f'{cutoff_prob:.3f}',
             color='red', fontsize=10, ha='right')
 
-    plt.subplots_adjust(left=0.08, right=0.92, top=0.92, bottom=0.12)
+    # 调整边距给标题留空间
+    plt.subplots_adjust(left=0.08, right=0.92, top=0.88, bottom=0.12)
     return fig
 
 # ============================================================
-# 4. 下载图片生成（使用 Matplotlib 信息区，字体大小30/20/16）
+# 4. 下载图片生成（信息区使用 Matplotlib，避免字体问题）
 # ============================================================
 def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     try:
-        # 1. 将列线图和概率曲线转为 PIL Image
         buf1 = BytesIO()
         fig_nomogram.savefig(buf1, format='png', dpi=dpi, bbox_inches='tight')
         buf1.seek(0)
@@ -322,29 +332,27 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         buf2.seek(0)
         img2 = Image.open(buf2)
 
-        # 2. 使用 Matplotlib 生成信息区
-        # 宽度根据列线图宽度调整，高度根据文字行数动态计算
-        info_width = 16  # inches
+        # 使用 Matplotlib 生成信息区
+        info_width = 16  # 宽度与列线图匹配
         lines = [
             ("Extraprostatic Extension Risk Calculator", 30, 'bold'),
             (f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", 20, 'normal'),
             (f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}", 20, 'normal'),
             (f"Total Points: {total_score:.1f}, Probability: {prob:.3f}", 20, 'normal')
         ]
-        # 预估高度：每行高度约等于字号*1.5，加上标题额外空间
+        # 计算合适的 figsize 高度
         line_heights = [30*1.5, 20*1.5, 20*1.5, 20*1.5]
-        info_height = sum(line_heights) + 60  # 加上边距和分隔线
-        fig_info, ax_info = plt.subplots(figsize=(info_width, info_height/100))  # 转换为 inches，但实际高度以像素为准，这里用近似值
+        total_info_height = sum(line_heights) + 80  # 加上边距和分隔线
+        fig_info, ax_info = plt.subplots(figsize=(info_width, total_info_height/100))
         ax_info.axis('off')
         ax_info.set_xlim(0, 1)
         ax_info.set_ylim(0, 1)
 
         y_start = 0.95
-        y_step = 0.2
+        y_step = 0.18
         for i, (text, size, weight) in enumerate(lines):
-            ax_info.text(0.01, y_start - i*y_step, text, fontsize=size, va='top', 
+            ax_info.text(0.01, y_start - i*y_step, text, fontsize=size, va='top',
                         fontweight=weight, family='Arial')
-        # 分隔线
         ax_info.axhline(y=0.05, color='gray', linewidth=2)
 
         plt.tight_layout(pad=0.1)
@@ -354,7 +362,7 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         img_info = Image.open(buf_info)
         plt.close(fig_info)
 
-        # 3. 垂直拼接
+        # 垂直拼接
         max_width = max(img_info.width, img1.width, img2.width)
         total_height = img_info.height + img1.height + img2.height + 20
         combined = Image.new('RGB', (max_width, total_height), 'white')
@@ -381,28 +389,25 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         return buf
 
 # ============================================================
-# 5. Streamlit 界面（带 CSS 调整标题字体大小）
+# 5. Streamlit 界面
 # ============================================================
 st.set_page_config(page_title="Extraprostatic Extension Risk Calculator", layout="wide")
 
-# 自定义 CSS 控制标题字体大小
+# CSS 控制标题字体大小
 st.markdown("""
 <style>
-    /* 主标题（h1）字体大小 30 */
     h1 {
         font-size: 30px !important;
         font-family: Arial, sans-serif !important;
     }
-    /* 所有子标题（h2）字体大小 20 */
     h2 {
         font-size: 20px !important;
         font-family: Arial, sans-serif !important;
     }
-    /* 其他文字（输入框标签等）采用默认，但 Arial 已在全局设定 */
     .stNumberInput label, .stCheckbox label {
         font-family: Arial, sans-serif !important;
+        font-size: 16px !important;
     }
-    /* 日期显示 */
     .date-text {
         font-size: 16px;
         font-family: Arial, sans-serif;
@@ -410,7 +415,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 显示当前日期（字体16）
 current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
 st.markdown(f'<p class="date-text"><strong>Date: {current_date}</strong></p>', unsafe_allow_html=True)
 
@@ -427,16 +431,16 @@ with col1:
 with col2:
     st.subheader("MRI Semantic Features")
     cclmax = st.number_input("Maximum Capsular Contact Length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f")
-    # 三个定性指标横向排列（使用三列）
+    # 三个 checkbox 横向排列，并下移（在 CCLmax 下方添加空行，使其与 Free PSA 对齐）
+    st.markdown("<br>", unsafe_allow_html=True)  # 增加一个空行使 checkbox 下移
     col_bulge, col_disrupt, col_retract = st.columns(3)
     with col_bulge:
-        bulge = st.checkbox("Bulging", value=False)
+        bulge = st.checkbox("Capsular Bulging", value=False)
     with col_disrupt:
-        disruption = st.checkbox("Disruption", value=False)
+        disruption = st.checkbox("Capsular Disruption", value=False)
     with col_retract:
-        retraction = st.checkbox("Retraction", value=False)
+        retraction = st.checkbox("Capsular Retraction", value=False)
 
-# 构建病例字典
 case = {
     "f/tPSA": ftpsa,
     "fPSA": fpsa,
@@ -457,10 +461,9 @@ if prob >= 0.351:
 else:
     col_risk.success("Low Risk of EPE (< 0.351)")
 
-st.subheader("Nomogram with Current Case Marked")
+# 直接显示图形，不再用 st.subheader（标题已嵌入图形）
 st.pyplot(fig_nomogram)
 
-st.subheader("Total Points → Probability Curve")
 fig_curve = plot_probability_curve(total_score, prob)
 st.pyplot(fig_curve)
 
