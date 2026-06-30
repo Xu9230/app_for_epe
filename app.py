@@ -326,40 +326,40 @@ st.markdown("""
 <style>
     /* 1. 整个页面内容区的上下内边距（整体压缩或扩充） */
     .block-container {
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
+        padding-top: 0.2rem;
+        padding-bottom: 0.2rem;
     }
 
     /* 2. 页面主标题 (h1) 的上下间距 */
     h1 {
         margin-top: 0rem;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.2rem;
     }
 
     /* 3. 所有二级标题 (h2) 的上下间距
        包括: "Clinical Variables", "MRI Semantic Features",
              "Nomogram with Current Case Marked", "Total Points → Probability Curve" */
     h2 {
-        margin-top: 0.5rem;
+        margin-top: 0.2rem;
         margin-bottom: 0.2rem;
     }
 
     /* 4. 所有 st.subheader 标题（如果有的话） */
     .stSubheader {
-        margin-top: 0.5rem;
+        margin-top: 0.2rem;
         margin-bottom: 0.2rem;
     }
 
     /* 5. 所有元素容器（输入框、按钮、图表、指标卡等）之间的垂直间距 */
     .element-container {
-        margin-top: 0.2rem;
-        margin-bottom: 0.2rem;
+        margin-top: 0.1rem;
+        margin-bottom: 0.1rem;
     }
 
     /* 6. 专门控制 st.pyplot 生成的图表（列线图和概率曲线）之间的间距 */
     .stImage, .stPlotlyChart {
-        margin-top: 0.2rem;
-        margin-bottom: 0.2rem;
+        margin-top: 0.1rem;
+        margin-bottom: 0.1rem;
     }
 </style>
 """, unsafe_allow_html=True)
