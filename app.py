@@ -278,7 +278,7 @@ def plot_nomogram(case):
     ax.text(point_prob_clipped + 2, y_prob - 0.1, f'{prob_case:.3f}', fontsize=12,
             color='red', ha='left', va='top', fontweight='bold')
 
-    plt.subplots_adjust(left=0.05, right=0.05, top=0.05, bottom=0.05)
+    plt.tight_layout(pad=0.5)
     return fig, total_score, prob_case
 
 # ============================================================
