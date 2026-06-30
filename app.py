@@ -3,9 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.special import expit
 
-# ========================
-# 模型参数（与你的原始代码完全一致）
-# ========================
+# ============================================================
+# 1. 模型参数（与列线图代码完全一致）
+# ============================================================
 intercept = -1.859
 coef = {
     "f/tPSA": -0.368,
@@ -16,6 +16,7 @@ coef = {
     "Capsular retraction": 0.701
 }
 
+# 对数转换所需的均值和标准差（来自训练集）
 mu_fpsa = 0.6659
 sigma_fpsa = 0.9259
 mu_ftpsa = -2.0339
@@ -23,198 +24,319 @@ sigma_ftpsa = 0.7558
 mu_cc = 34.566
 sigma_cc = 35.530
 
-base_coef = abs(coef["f/tPSA"])   # 0.368
-base_score = 10
-score_unit = base_coef / base_score   # 0.0368
-
-binary_scores = {
-    "Capsular bulging":    coef["Capsular bulging"]    / score_unit,
-    "Capsular disruption": coef["Capsular disruption"] / score_unit,
-    "Capsular retraction": coef["Capsular retraction"] / score_unit
+# 各变量的原始值范围（2.5% ~ 97.5% 分位数）
+ranges = {
+    "f/tPSA": (0.04, 0.77),
+    "fPSA": (0.49, 21.88),
+    "CCLmax": (0.0, 105.0),
+    "Capsular bulging": (0, 1),
+    "Capsular disruption": (0, 1),
+    "Capsular retraction": (0, 1)
+}
+binary_vars = ["Capsular bulging", "Capsular disruption", "Capsular retraction"]
+var_display_names = {
+    "f/tPSA": "f/tPSA",
+    "fPSA": "fPSA",
+    "CCLmax": "CCLmax",
+    "Capsular bulging": "Capsular bulging",
+    "Capsular disruption": "Capsular disruption",
+    "Capsular retraction": "Capsular retraction"
 }
 
-fpsa_per_unit = coef["fPSA"] / sigma_fpsa / score_unit
-ftpsa_per_unit = coef["f/tPSA"] / sigma_ftpsa / score_unit
-cc_per_mm = coef["CCLmax"] / sigma_cc / score_unit
-
-fpsa_range = (0.49, 21.88)
-ftpsa_range = (0.04, 0.77)
-cc_range = (0.0, 105.0)
-
-baseline = {
-    "f/tPSA": ftpsa_range[1],
-    "fPSA": fpsa_range[0],
-    "CCLmax": cc_range[0],
-    "Capsular bulging": 0,
-    "Capsular disruption": 0,
-    "Capsular retraction": 0
-}
-
-def safe_log(x):
-    return np.log(x) if x > 0 else np.log(1e-6)
-
-def lp_contribution(var, x):
+# ----- 计算列线图分数体系（与列线图代码完全一致） -----
+def get_lp(var, x_raw):
+    """计算线性预测值（不含截距）"""
     if var == "CCLmax":
-        return coef[var] * (x - mu_cc) / sigma_cc
+        return coef[var] * (x_raw - mu_cc) / sigma_cc
     elif var == "fPSA":
-        return coef[var] * (safe_log(x) - mu_fpsa) / sigma_fpsa
+        x_log = np.log(x_raw) if x_raw > 0 else np.log(1e-6)
+        return coef[var] * (x_log - mu_fpsa) / sigma_fpsa
     elif var == "f/tPSA":
-        return coef[var] * (safe_log(x) - mu_ftpsa) / sigma_ftpsa
+        x_log = np.log(x_raw) if x_raw > 0 else np.log(1e-6)
+        return coef[var] * (x_log - mu_ftpsa) / sigma_ftpsa
     else:
-        return coef[var] * x
+        return coef[var] * x_raw
 
-lp_baseline = sum(lp_contribution(v, baseline[v]) for v in coef)
-logit_baseline = lp_baseline + intercept
+# 基线值：f/tPSA取最大值（反转），其余取最小值
+baseline_values = {}
+for var in coef:
+    if var == "f/tPSA":
+        baseline_values[var] = ranges[var][1]
+    else:
+        baseline_values[var] = ranges[var][0]
 
-worst = {
-    "f/tPSA": ftpsa_range[0],
-    "fPSA": fpsa_range[1],
-    "CCLmax": cc_range[1],
-    "Capsular bulging": 1,
-    "Capsular disruption": 1,
-    "Capsular retraction": 1
-}
-lp_worst = sum(lp_contribution(v, worst[v]) for v in coef)
-max_score = (lp_worst - lp_baseline) / score_unit
+# 计算 scale 使得基线到最大风险对应 100 分（如需要可扩展）
+lp_all_max = sum(get_lp(v, ranges[v][1]) for v in coef)
+baseline_lp = sum(get_lp(v, baseline_values[v]) for v in coef)
+logit_baseline = baseline_lp + intercept
+logit_max = lp_all_max + intercept
+max_prob = expit(logit_max)
 
-def calc_score(var, x):
-    base = lp_contribution(var, baseline[var])
-    return (lp_contribution(var, x) - base) / score_unit
+TARGET_PROB = 0.9
+if max_prob < TARGET_PROB:
+    target_logit = np.log(TARGET_PROB / (1 - TARGET_PROB))
+    extra_logit = target_logit - logit_max
+    scale = 100 / (lp_all_max - baseline_lp)
+    MAX_POINTS = 100 + extra_logit * scale
+else:
+    scale = 100 / (lp_all_max - baseline_lp)
+    MAX_POINTS = 100
+MAX_POINTS = int(np.ceil(MAX_POINTS / 10) * 10)   # 取整到10的倍数
 
-def plot_score_chart(case):
-    """根据输入的病例绘制评分系统图，返回 matplotlib figure"""
-    plt.rcParams['font.family'] = 'Arial'
-    plt.rcParams['font.size'] = 18
-    fig, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(10, 7),
-                                            gridspec_kw={'height_ratios': [1.5, 1]})
+def calc_points(var, x_raw):
+    """计算单个变量的得分（点数）"""
+    base_lp = get_lp(var, baseline_values[var])
+    return (get_lp(var, x_raw) - base_lp) * scale
 
-    # ---- 上部：变量轴 ----
-    ax_top.set_xlim(-15, 115)
-    ax_top.set_ylim(0, 6.5)
-    ax_top.axis('off')
-    ax_top.set_title('Variable → Score Assignment', fontsize=14, fontweight='bold', pad=12)
+def inv_calc_points(var, points):
+    """根据得分反推原始值（用于绘制刻度）"""
+    base_lp = get_lp(var, baseline_values[var])
+    lp_val = points / scale + base_lp
+    if var == "CCLmax":
+        return lp_val / coef[var] * sigma_cc + mu_cc
+    elif var == "fPSA":
+        log_x = lp_val / coef[var] * sigma_fpsa + mu_fpsa
+        return np.exp(log_x)
+    elif var == "f/tPSA":
+        log_x = lp_val / coef[var] * sigma_ftpsa + mu_ftpsa
+        return np.exp(log_x)
+    else:
+        return None
 
-    y_pos = [5.5, 4.5, 3.5, 2.5, 1.5, 0.5]
-    var_names = ["f/tPSA", "fPSA", "CCLmax", "Capsular bulging", "Capsular disruption", "Capsular retraction"]
-    var_labels = ["f/tPSA", "fPSA", "CCLmax", "Capsular bulging", "Capsular disruption", "Capsular retraction"]
+# ============================================================
+# 2. 绘图函数：列线图（含红点标记）
+# ============================================================
+def plot_nomogram(case):
+    """
+    绘制列线图，并在每个变量轴、总分轴、风险轴标记红点
+    case: dict, 包含所有变量的值
+    返回 matplotlib.figure.Figure
+    """
+    # 绘图参数（与列线图代码一致）
+    figsize = (12, 11)
+    left_margin = 40
+    axis_gap = 1.0
+    y_points = 9.5
+    y_ftpsa  = y_points - axis_gap
+    y_fpsa   = y_ftpsa  - axis_gap
+    y_cc     = y_fpsa   - axis_gap
+    y_bulge  = y_cc     - axis_gap
+    y_disrupt = y_bulge - axis_gap
+    y_retract = y_disrupt - axis_gap
+    y_total  = y_retract - axis_gap
+    y_prob   = y_total  - axis_gap
 
-    axis_score_ranges = {}
+    font_family = 'Arial'
+    label_fontsize = 18
+    tick_fontsize = 14
+    text_color = 'black'
+    line_color = 'black'
+    line_width = 1.5
+    tick_length = 0.15
+    tick_width = 1.0
+    label_offset = 0.25
 
-    # 二分类变量轴
-    for i, var in enumerate(var_names[3:], start=3):
-        y = y_pos[i]
-        pts_present = binary_scores[var]
-        pts_absent = 0.0
-        axis_score_ranges[var] = (pts_absent, pts_present, 0, 100)
-        pts_int = round(pts_present)
-        ax_top.plot([0, 100], [y, y], 'k-', lw=1.5)
-        ax_top.scatter(0, y, s=60, color='black', zorder=3)
-        ax_top.text(0, y - 0.3, 'Absent', ha='center', va='top', fontsize=10, color='gray')
-        ax_top.scatter(100, y, s=60, color='black', zorder=3)
-        ax_top.text(100, y - 0.3, 'Present', ha='center', va='top', fontsize=10, color='gray')
-        ax_top.text(-10, y, var_labels[i], ha='right', va='center', fontsize=14)
-        ax_top.text(103, y, f'{pts_int} pts', ha='left', va='center', fontsize=14, fontweight='bold')
+    points_tick_direction = 'down'
+    others_tick_direction = 'up'
 
-    # CCLmax 轴
-    cc_y = y_pos[2]
-    cc_ticks = np.linspace(cc_range[0], cc_range[1], 5)
-    cc_scores = [calc_score("CCLmax", v) for v in cc_ticks]
-    score_min_cc, score_max_cc = min(cc_scores), max(cc_scores)
-    axis_score_ranges["CCLmax"] = (score_min_cc, score_max_cc, 0, 100)
-    cc_x = [(v - cc_range[0]) / (cc_range[1] - cc_range[0]) * 100 for v in cc_ticks]
-    ax_top.plot([0, 100], [cc_y, cc_y], 'k-', lw=1.5)
-    for xp, val, sc in zip(cc_x, cc_ticks, cc_scores):
-        ax_top.scatter(xp, cc_y, s=60, color='black', zorder=3)
-        label = '0' if val == 0 else f'{val:.0f}'
-        ax_top.text(xp, cc_y - 0.3, label, ha='center', va='top', fontsize=10, color='gray')
-        if val == cc_range[1]:
-            ax_top.text(103, cc_y, f'{sc:.1f} pts', ha='left', va='center', fontsize=14, fontweight='bold')
-    ax_top.text(-10, cc_y, 'CCLmax', ha='right', va='center', fontsize=14)
+    variables = list(coef.keys())
+    var_y = {
+        "f/tPSA": y_ftpsa,
+        "fPSA": y_fpsa,
+        "CCLmax": y_cc,
+        "Capsular bulging": y_bulge,
+        "Capsular disruption": y_disrupt,
+        "Capsular retraction": y_retract
+    }
 
-    # fPSA 轴
-    fpsa_y = y_pos[1]
-    fpsa_ticks = np.linspace(fpsa_range[0], fpsa_range[1], 4)
-    fpsa_scores = [calc_score("fPSA", v) for v in fpsa_ticks]
-    score_min_fpsa, score_max_fpsa = min(fpsa_scores), max(fpsa_scores)
-    axis_score_ranges["fPSA"] = (score_min_fpsa, score_max_fpsa, 0, 100)
-    fpsa_x = [(v - fpsa_range[0]) / (fpsa_range[1] - fpsa_range[0]) * 100 for v in fpsa_ticks]
-    ax_top.plot([0, 100], [fpsa_y, fpsa_y], 'k-', lw=1.5)
-    for xp, val, sc in zip(fpsa_x, fpsa_ticks, fpsa_scores):
-        ax_top.scatter(xp, fpsa_y, s=60, color='black', zorder=3)
-        ax_top.text(xp, fpsa_y - 0.3, f'{val:.1f}', ha='center', va='top', fontsize=10, color='gray')
-        if val == fpsa_range[1]:
-            ax_top.text(103, fpsa_y, f'{sc:.1f} pts', ha='left', va='center', fontsize=14, fontweight='bold')
-    ax_top.text(-10, fpsa_y, 'fPSA', ha='right', va='center', fontsize=14)
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.set_xlim(-left_margin, MAX_POINTS + 10)
+    ax.set_ylim(-0.5, y_points + 1.5)
+    ax.axis('off')
 
-    # f/tPSA 轴（反转）
-    ftpsa_y = y_pos[0]
-    ftpsa_ticks = np.linspace(ftpsa_range[1], ftpsa_range[0], 4)
-    ftpsa_scores = [calc_score("f/tPSA", v) for v in ftpsa_ticks]
-    score_min_ftpsa, score_max_ftpsa = min(ftpsa_scores), max(ftpsa_scores)
-    axis_score_ranges["f/tPSA"] = (score_min_ftpsa, score_max_ftpsa, 0, 100)
-    ftpsa_x = [(v - ftpsa_range[1]) / (ftpsa_range[0] - ftpsa_range[1]) * 100 for v in ftpsa_ticks]
-    ax_top.plot([0, 100], [ftpsa_y, ftpsa_y], 'k-', lw=1.5)
-    for xp, val, sc in zip(ftpsa_x, ftpsa_ticks, ftpsa_scores):
-        ax_top.scatter(xp, ftpsa_y, s=60, color='black', zorder=3)
-        ax_top.text(xp, ftpsa_y - 0.3, f'{val:.2f}', ha='center', va='top', fontsize=10, color='gray')
-        if val == ftpsa_ticks[0]:
-            ax_top.text(xp, ftpsa_y + 0.4, f'{sc:.1f} pts', ha='center', va='bottom', fontsize=11, color='gray')
-        if val == ftpsa_ticks[-1]:
-            ax_top.text(103, ftpsa_y, f'{sc:.1f} pts', ha='left', va='center', fontsize=14, fontweight='bold')
-    ax_top.text(-10, ftpsa_y, 'f/tPSA', ha='right', va='center', fontsize=14)
+    # ---- 辅助函数：获取刻度偏移 ----
+    def get_tick_offsets(direction):
+        if direction == 'up':
+            return tick_length, -label_offset
+        else:
+            return -tick_length, label_offset
 
-    # ----- 标出病例红点及得分 -----
-    total_score = 0.0
-    for var in var_names:
-        y = y_pos[var_names.index(var)]
+    # ---- 绘制每个变量轴 ----
+    for var in variables:
+        y = var_y[var]
+        xmin, xmax = ranges[var]
+
+        # 计算该变量轴的刻度位置（points值）和对应的原始值标签
+        if var in binary_vars:
+            ticks = np.array([0, 1])
+            tick_points = np.array([calc_points(var, t) for t in ticks])
+        else:
+            pt_min = calc_points(var, xmin)
+            pt_max = calc_points(var, xmax)
+            pt_low, pt_high = min(pt_min, pt_max), max(pt_min, pt_max)
+            pt_vals = np.linspace(pt_low, pt_high, 4)
+            raw_vals = np.array([inv_calc_points(var, p) for p in pt_vals])
+            raw_vals = np.clip(raw_vals, min(xmin, xmax), max(xmin, xmax))
+            ticks = raw_vals
+            tick_points = pt_vals
+
+        # 绘制轴线
+        ax.plot([tick_points.min(), tick_points.max()], [y, y],
+                color=line_color, lw=line_width)
+
+        tick_shift, label_shift = get_tick_offsets(others_tick_direction)
+
+        # 绘制刻度线和标签
+        for t, tp in zip(ticks, tick_points):
+            ax.plot([tp, tp], [y, y + tick_shift], color=line_color, lw=tick_width)
+            if var in binary_vars:
+                label = f"{int(t)}"
+            else:
+                if np.isclose(t, 0.0, atol=1e-6):
+                    label = "0"
+                else:
+                    label = f"{t:.1f}"
+            va = 'bottom' if label_shift > 0 else 'top'
+            ax.text(tp, y + label_shift, label, ha='center', va=va,
+                    fontsize=tick_fontsize, color=text_color)
+
+        # 变量名
+        display_name = var_display_names.get(var, var)
+        ax.text(-left_margin + 5, y, display_name, ha='left', va='center',
+                fontsize=label_fontsize, color=text_color, fontweight='bold')
+
+        # ---- 在变量轴上标记红点（当前病例） ----
         raw_val = case[var]
-        if var in binary_scores:
+        # 处理二分类：将bool转为0/1
+        if var in binary_vars:
             raw_val = 1 if raw_val else 0
-        score = calc_score(var, raw_val)
-        total_score += score
-        smin, smax, xmin, xmax = axis_score_ranges[var]
-        x_red = xmin + (np.clip(score, smin, smax) - smin) / (smax - smin) * (xmax - xmin)
-        ax_top.plot(x_red, y, 'ro', markersize=10, markeredgecolor='darkred', zorder=5)
-        ax_top.text(x_red - 0.75, y + 0.15, f'{score:.1f}', fontsize=12, color='red', ha='right', va='bottom')
+        # 计算该变量的得分
+        score = calc_points(var, raw_val)
+        # 如果得分超出轴范围，截断到端点（但红点仍显示在端点）
+        # 找到轴上的实际范围
+        ax_range_min = tick_points.min()
+        ax_range_max = tick_points.max()
+        # 红点位置
+        x_red = np.clip(score, ax_range_min, ax_range_max)
+        ax.plot(x_red, y, 'ro', markersize=10, markeredgecolor='darkred', zorder=5)
+        # 显示得分数值（可选）
+        ax.text(x_red - 2, y + 0.2, f'{score:.1f}', fontsize=12, color='red',
+                ha='right', va='bottom', fontweight='bold')
 
-    # ----- 下部：总分–概率曲线 -----
-    ax_bottom.set_title('Total Score → Probability', fontsize=18, fontweight='bold')
-    t_all = np.linspace(0, max_score + 10, 200)
-    logit_all = logit_baseline + t_all * score_unit
-    prob_all = expit(logit_all)
-    ax_bottom.plot(t_all, prob_all, 'b-', lw=2)
-    ax_bottom.set_xlabel('Total Score', fontsize=18)
-    ax_bottom.set_ylabel('Probability', fontsize=18)
-    ax_bottom.set_xlim(0, 250)
-    ax_bottom.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
-    ax_bottom.set_ylim(0, 1.02)
-    ax_bottom.grid(alpha=0.2)
+    # ---- Points 轴（最上方） ----
+    ax.plot([0, MAX_POINTS], [y_points, y_points], color=line_color, lw=line_width)
+    tick_shift, label_shift = get_tick_offsets(points_tick_direction)
+    step = max(10, int(MAX_POINTS / 10))
+    for p in range(0, MAX_POINTS + step, step):
+        ax.plot([p, p], [y_points, y_points + tick_shift], color=line_color, lw=tick_width)
+        va = 'top' if label_shift > 0 else 'bottom'
+        ax.text(p, y_points + label_shift, str(p), ha='center', va=va,
+                fontsize=tick_fontsize, color=text_color)
+    ax.text(-left_margin + 5, y_points, "Points", ha='left', va='center',
+            fontsize=label_fontsize, color=text_color, fontweight='bold')
 
-    cutoff_prob = 0.351
-    cutoff_score = (np.log(cutoff_prob / (1 - cutoff_prob)) - logit_baseline) / score_unit
-    ax_bottom.axhline(y=cutoff_prob, color='red', linestyle='--', linewidth=1.5)
-    ax_bottom.text(-15, cutoff_prob, f'{cutoff_prob:.3f}', color='red', fontsize=12, va='center')
-    ax_bottom.text(245, -0.35, f'Cutoff {cutoff_prob:.3f} is selected with the Youden J index',
-                   fontsize=9, ha='right', va='top', color='gray')
+    # ---- Total Points 轴 ----
+    ax.plot([0, MAX_POINTS], [y_total, y_total], color=line_color, lw=line_width)
+    tick_shift, label_shift = get_tick_offsets(others_tick_direction)
+    for p in range(0, MAX_POINTS + step, step):
+        ax.plot([p, p], [y_total, y_total + tick_shift], color=line_color, lw=tick_width)
+        va = 'bottom' if label_shift > 0 else 'top'
+        ax.text(p, y_total + label_shift, str(p), ha='center', va=va,
+                fontsize=tick_fontsize, color=text_color)
+    ax.text(-left_margin + 5, y_total, "Total Points", ha='left', va='center',
+            fontsize=label_fontsize, color=text_color, fontweight='bold')
 
-    for p in np.arange(0.1, 1.01, 0.1):
-        t_p = (np.log(p / (1 - p)) - logit_baseline) / score_unit
-        if 0 < t_p <= max_score:
-            ax_bottom.plot(t_p, p, 'ko', markersize=8)
-            ax_bottom.text(t_p - 2.5, p - 0.05, f'{t_p:.0f} pts', fontsize=10, ha='left', va='top')
+    # ---- Risk 轴（概率） ----
+    prob_ticks = np.linspace(0.1, 0.9, 9)
+    logit_ticks = np.log(prob_ticks / (1 - prob_ticks))
+    point_ticks = (logit_ticks - logit_baseline) * scale
+    valid_idx = (point_ticks > 0) & (point_ticks < MAX_POINTS)
+    valid_point_ticks = point_ticks[valid_idx]
+    valid_prob_ticks = prob_ticks[valid_idx]
 
-    prob_case = expit(logit_baseline + total_score * score_unit)
-    ax_bottom.plot(total_score, prob_case, 'ro', markersize=12, markerfacecolor='red', markeredgecolor='darkred')
-    ax_bottom.text(total_score - 1.5, prob_case + 0.03,
-                   f'{total_score:.1f} pts, {prob_case:.3f}',
-                   fontsize=12, color='red', fontweight='bold', ha='right', va='bottom')
+    if len(valid_point_ticks) > 0:
+        ax.plot([valid_point_ticks.min(), valid_point_ticks.max()],
+                [y_prob, y_prob], color=line_color, lw=line_width)
+        tick_shift, label_shift = get_tick_offsets(others_tick_direction)
+        for pt, p in zip(valid_point_ticks, valid_prob_ticks):
+            ax.plot([pt, pt], [y_prob, y_prob + tick_shift], color=line_color, lw=tick_width)
+            va = 'bottom' if label_shift > 0 else 'top'
+            ax.text(pt, y_prob + label_shift, f"{p:.1f}", ha='center', va=va,
+                    fontsize=tick_fontsize, color=text_color)
+        ax.text(-left_margin + 5, y_prob, "Risk", ha='left', va='center',
+                fontsize=label_fontsize, color=text_color, fontweight='bold')
+    else:
+        st.warning("概率轴无有效刻度，请检查模型参数。")
+
+    # ---- 在总分轴上标记红点 ----
+    # 计算总得分
+    total_score = 0.0
+    for var in variables:
+        raw_val = case[var]
+        if var in binary_vars:
+            raw_val = 1 if raw_val else 0
+        total_score += calc_points(var, raw_val)
+    # 截断到有效范围
+    total_score_clipped = np.clip(total_score, 0, MAX_POINTS)
+    ax.plot(total_score_clipped, y_total, 'ro', markersize=12, markeredgecolor='darkred', zorder=5)
+    ax.text(total_score_clipped - 2, y_total + 0.2, f'{total_score:.1f}', fontsize=12,
+            color='red', ha='right', va='bottom', fontweight='bold')
+
+    # ---- 在风险轴上标记红点 ----
+    prob_case = expit(logit_baseline + total_score / scale)
+    # 将概率转换为points位置（用于在Risk轴上画点）
+    logit_case = logit_baseline + total_score / scale
+    point_prob = (logit_case - logit_baseline) * scale
+    point_prob_clipped = np.clip(point_prob, valid_point_ticks.min() if len(valid_point_ticks)>0 else 0,
+                                 valid_point_ticks.max() if len(valid_point_ticks)>0 else MAX_POINTS)
+    ax.plot(point_prob_clipped, y_prob, 'ro', markersize=12, markeredgecolor='darkred', zorder=5)
+    # 显示概率数值
+    ax.text(point_prob_clipped + 2, y_prob - 0.1, f'{prob_case:.3f}', fontsize=12,
+            color='red', ha='left', va='top', fontweight='bold')
 
     plt.tight_layout()
     return fig, total_score, prob_case
 
-# ========================
-# Streamlit 界面
-# ========================
+
+# ============================================================
+# 3. 概率曲线图（与当前工具类似，但使用新的总分体系）
+# ============================================================
+def plot_probability_curve(total_score, prob_case):
+    """绘制总分-概率曲线，并标记当前点"""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    # 生成曲线
+    t_all = np.linspace(0, MAX_POINTS * 1.2, 200)
+    logit_all = logit_baseline + t_all / scale
+    prob_all = expit(logit_all)
+    ax.plot(t_all, prob_all, 'b-', lw=2)
+    ax.set_xlabel('Total Points', fontsize=18)
+    ax.set_ylabel('Probability', fontsize=18)
+    ax.set_xlim(0, MAX_POINTS * 1.2)
+    ax.set_ylim(0, 1.02)
+    ax.set_yticks(np.arange(0, 1.01, 0.1))
+    ax.grid(alpha=0.2)
+
+    # 标记当前点
+    ax.plot(total_score, prob_case, 'ro', markersize=12, markeredgecolor='darkred')
+    ax.text(total_score + 2, prob_case - 0.02,
+            f'Points: {total_score:.1f}\nProb: {prob_case:.3f}',
+            fontsize=12, color='red', ha='left', va='top')
+
+    # 可选：标注Youden cutoff（0.351）
+    cutoff_prob = 0.351
+    cutoff_score = (np.log(cutoff_prob / (1 - cutoff_prob)) - logit_baseline) * scale
+    ax.axhline(y=cutoff_prob, color='red', linestyle='--', linewidth=1.5)
+    ax.text(MAX_POINTS*0.9, cutoff_prob+0.01, f'Cutoff = {cutoff_prob:.3f}',
+            color='red', fontsize=12, ha='right')
+    ax.axvline(x=cutoff_score, color='red', linestyle='--', linewidth=1.0, alpha=0.5)
+
+    plt.tight_layout()
+    return fig
+
+
+# ============================================================
+# 4. Streamlit 界面
+# ============================================================
 st.set_page_config(page_title="Extraprostatic Extension Risk Calculator", layout="wide")
 st.title("Extraprostatic Extension Risk Calculator")
 st.markdown("Predict the probability of extraprostatic extension using MRI semantic features and clinical variables")
@@ -243,17 +365,26 @@ case = {
     "Capsular retraction": retraction
 }
 
-# 绘图并获取结果
-fig, total_score, prob = plot_score_chart(case)
+# 绘制列线图并获取结果
+fig_nomogram, total_score, prob = plot_nomogram(case)
 
+# 显示指标
 st.markdown("---")
 col_score, col_prob, col_risk = st.columns(3)
-col_score.metric("Total Score", f"{total_score:.1f}")
+col_score.metric("Total Points", f"{total_score:.1f}")
 col_prob.metric("Probability", f"{prob:.3f}")
 if prob >= 0.351:
     col_risk.error("High Risk of EPE (≥ 0.351)")
 else:
     col_risk.success("Low Risk of EPE (< 0.351)")
 
-st.pyplot(fig)
-st.markdown("* CCLmax range (0-105) corresponds to the 2.5%-97.5% percentile of the training set.Binary variable scores are rounded integers; actual calculations use exact regression coefficients.")
+# 显示列线图
+st.subheader("Nomogram with Current Case Marked")
+st.pyplot(fig_nomogram)
+
+# 显示概率曲线
+st.subheader("Total Points → Probability Curve")
+fig_curve = plot_probability_curve(total_score, prob)
+st.pyplot(fig_curve)
+
+st.caption("* All score calculations follow the nomogram scaling (baseline to maximum risk = 100 points, adjusted for 0.9 probability). The red dots on the nomogram indicate the contribution of each variable and the resulting total points and risk.")
