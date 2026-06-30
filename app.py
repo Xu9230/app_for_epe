@@ -434,7 +434,7 @@ st.markdown("Predict the probability of extraprostatic extension using MRI seman
 # ---- 第一行：Clinical Variables ----
 st.subheader("Clinical Variables")
 ftpsa = st.number_input("Free/Total PSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f")
-fpsa = st.number_input("Free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.2f")
+fpsa = st.number_input("Free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.3f")
 
 # ---- 第二行：MRI Semantic Features ----
 st.subheader("MRI Semantic Features")
