@@ -153,7 +153,7 @@ def plot_nomogram(case):
     ax.axis('off')
 
     # ---- 在图形顶部添加标题 ----
-    ax.text(0, y_points + 0.7, "Nomogram with Current Case Marked",
+    ax.text(-left_margin + 5, y_points + 0.7, "Nomogram with Current Case Marked",
             fontsize=title_fontsize, fontweight='bold', ha='left', va='bottom',
             color='black', family='Arial')
 
@@ -314,7 +314,7 @@ def plot_probability_curve(total_score, prob_case):
             color='red', fontsize=10, ha='right')
 
     # 调整边距给标题留空间
-    plt.subplots_adjust(left=0.08, right=0.92, top=0.88, bottom=0.12)
+    plt.subplots_adjust(left=0.08, right=0.92, top=0.88, bottom=0.12, loc='left')
     return fig
 
 # ============================================================
