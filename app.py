@@ -34,13 +34,15 @@ ranges = {
     "Capsular retraction": (0, 1)
 }
 binary_vars = ["Capsular bulging", "Capsular disruption", "Capsular retraction"]
+
+# ===== 修改点 1：变量显示名称（列线图轴标签） =====
 var_display_names = {
-    "f/tPSA": "f/tPSA",
-    "fPSA": "fPSA",
+    "f/tPSA": "Free/Total PSA",
+    "fPSA": "Free PSA",
     "CCLmax": "CCLmax",
-    "Capsular bulging": "Capsular bulging",
-    "Capsular disruption": "Capsular disruption",
-    "Capsular retraction": "Capsular retraction"
+    "Capsular bulging": "Capsular Bulging",
+    "Capsular disruption": "Capsular Disruption",
+    "Capsular retraction": "Capsular Retraction"
 }
 
 # ----- 计算列线图分数体系（与列线图代码完全一致） -----
@@ -114,7 +116,7 @@ def plot_nomogram(case):
     """
     # 绘图参数（与列线图代码一致）
     figsize = (12, 11)
-    left_margin = 45
+    left_margin = 50   # 适当增加左侧空白，避免标签重叠
     axis_gap = 1.0
     y_points = 9.5
     y_ftpsa  = y_points - axis_gap
@@ -200,7 +202,7 @@ def plot_nomogram(case):
             ax.text(tp, y + label_shift, label, ha='center', va=va,
                     fontsize=tick_fontsize, color=text_color)
 
-        # 变量名
+        # 变量名（使用新的显示名称）
         display_name = var_display_names.get(var, var)
         ax.text(-left_margin + 5, y, display_name, ha='left', va='center',
                 fontsize=label_fontsize, color=text_color, fontweight='bold')
@@ -345,16 +347,18 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Clinical Variables")
-    ftpsa = st.number_input("free/total PSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f")
-    fpsa = st.number_input("free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.2f")
-    
+    # ===== 修改点 2：界面输入标签 =====
+    ftpsa = st.number_input("Free/Total PSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f")
+    fpsa = st.number_input("Free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.2f")
+   
 
 with col2:
     st.subheader("MRI Semantic Features")
-    cclmax = st.number_input("capsular contact length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f")
-    bulge = st.checkbox("Capsular bulging", value=False)
-    disruption = st.checkbox("Capsular disruption", value=False)
-    retraction = st.checkbox("Capsular retraction", value=False)
+     # 将 CCLmax 移到临床变量中（原属 MRI 特征，但通常归为临床）
+    cclmax = st.number_input("Maximum Capsular Contact Length(CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f")
+    bulge = st.checkbox("Capsular Bulging", value=False)
+    disruption = st.checkbox("Capsular Disruption", value=False)
+    retraction = st.checkbox("Capsular Retraction", value=False)
 
 # 构建病例字典
 case = {
