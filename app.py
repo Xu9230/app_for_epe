@@ -123,10 +123,9 @@ def plot_nomogram(case):
     y_total  = y_retract - axis_gap
     y_prob   = y_total  - axis_gap
 
-    # 字体大小
     label_fontsize = 16
     tick_fontsize = 16
-    title_fontsize = 20      # 子图标题字体
+    title_fontsize = 20
     text_color = 'black'
     line_color = 'black'
     line_width = 1.5
@@ -152,7 +151,6 @@ def plot_nomogram(case):
     ax.set_ylim(-0.5, y_points + 1.5)
     ax.axis('off')
 
-    # ---- 在图形顶部添加标题 ----
     ax.text(-left_margin + 5, y_points + 0.7, "Nomogram with Current Case Marked",
             fontsize=title_fontsize, fontweight='bold', ha='left', va='bottom',
             color='black', family='Arial')
@@ -278,7 +276,6 @@ def plot_nomogram(case):
     ax.text(point_prob_clipped + 2, y_prob - 0.1, f'{prob_case:.3f}', fontsize=12,
             color='red', ha='left', va='top', fontweight='bold')
 
-    # 调整边距，为标题留空间（top 增大）
     plt.subplots_adjust(left=0.05, right=0.95, top=0.97, bottom=0.05)
     return fig, total_score, prob_case
 
@@ -299,7 +296,6 @@ def plot_probability_curve(total_score, prob_case):
     ax.set_yticks(np.arange(0, 1.01, 0.1))
     ax.grid(alpha=0.2)
 
-    # ---- 添加图形标题 ----
     ax.set_title("Total Points → Probability Curve", fontsize=20, fontweight='bold', pad=15, family='Arial', loc='left')
 
     ax.plot(total_score, prob_case, 'ro', markersize=12, markeredgecolor='darkred')
@@ -313,12 +309,11 @@ def plot_probability_curve(total_score, prob_case):
     ax.text(-0.4, cutoff_prob-0.01, f'{cutoff_prob:.3f}',
             color='red', fontsize=10, ha='right')
 
-    # 调整边距给标题留空间
     plt.subplots_adjust(left=0.08, right=0.92, top=0.88, bottom=0.12)
     return fig
 
 # ============================================================
-# 4. 下载图片生成（信息区使用 Matplotlib，避免字体问题）
+# 4. 下载图片生成
 # ============================================================
 def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     try:
@@ -332,17 +327,15 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         buf2.seek(0)
         img2 = Image.open(buf2)
 
-        # 使用 Matplotlib 生成信息区
-        info_width = 16  # 宽度与列线图匹配
+        info_width = 16
         lines = [
             ("Extraprostatic Extension Risk Calculator", 30, 'bold'),
             (f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", 20, 'normal'),
             (f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}", 20, 'normal'),
             (f"Total Points: {total_score:.1f}, Probability: {prob:.3f}", 20, 'normal')
         ]
-        # 计算合适的 figsize 高度
         line_heights = [30*1.5, 20*1.5, 20*1.5, 20*1.5]
-        total_info_height = sum(line_heights) + 80  # 加上边距和分隔线
+        total_info_height = sum(line_heights) + 80
         fig_info, ax_info = plt.subplots(figsize=(info_width, total_info_height/100))
         ax_info.axis('off')
         ax_info.set_xlim(0, 1)
@@ -362,7 +355,6 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         img_info = Image.open(buf_info)
         plt.close(fig_info)
 
-        # 垂直拼接
         max_width = max(img_info.width, img1.width, img2.width)
         total_height = img_info.height + img1.height + img2.height + 20
         combined = Image.new('RGB', (max_width, total_height), 'white')
@@ -389,20 +381,22 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         return buf
 
 # ============================================================
-# 5. Streamlit 界面
+# 5. Streamlit 界面（修改部分）
 # ============================================================
 st.set_page_config(page_title="Extraprostatic Extension Risk Calculator", layout="wide")
 
-# CSS 控制标题字体大小
 st.markdown("""
 <style>
     h1 {
         font-size: 30px !important;
         font-family: Arial, sans-serif !important;
+        margin-bottom: 20px !important;   /* 增加标题下方间距 */
     }
     h2 {
         font-size: 20px !important;
         font-family: Arial, sans-serif !important;
+        margin-top: 15px !important;      /* 子标题上方间距 */
+        margin-bottom: 5px !important;
     }
     .stNumberInput label, .stCheckbox label {
         font-family: Arial, sans-serif !important;
@@ -411,36 +405,38 @@ st.markdown("""
     .date-text {
         font-size: 16px;
         font-family: Arial, sans-serif;
+        margin-bottom: 10px !important;   /* 日期与下方输入框的间距 */
     }
 </style>
 """, unsafe_allow_html=True)
 
+st.title("Extraprostatic Extension Risk Calculator")
+
+# ---- 日期显示（放在标题下方，并增加一个空行） ----
 current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
 st.markdown(f'<p class="date-text"><strong>Date: {current_date}</strong></p>', unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)  # 增加额外间距
 
-st.title("Extraprostatic Extension Risk Calculator")
 st.markdown("Predict the probability of extraprostatic extension using MRI semantic features and clinical variables")
 
-col1, col2 = st.columns(2)
+# ---- 第一行：Clinical Variables ----
+st.subheader("Clinical Variables")
+ftpsa = st.number_input("Free/Total PSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f")
+fpsa = st.number_input("Free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.2f")
 
-with col1:
-    st.subheader("Clinical Variables")
-    ftpsa = st.number_input("Free/Total PSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f")
-    fpsa = st.number_input("Free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.2f")
+# ---- 第二行：MRI Semantic Features ----
+st.subheader("MRI Semantic Features")
+cclmax = st.number_input("Maximum Capsular Contact Length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f")
+# 三个 checkbox 横向排列（使用列布局）
+col_bulge, col_disrupt, col_retract = st.columns(3)
+with col_bulge:
+    bulge = st.checkbox("Capsular Bulging", value=False)
+with col_disrupt:
+    disruption = st.checkbox("Capsular Disruption", value=False)
+with col_retract:
+    retraction = st.checkbox("Capsular Retraction", value=False)
 
-with col2:
-    st.subheader("MRI Semantic Features")
-    cclmax = st.number_input("Maximum Capsular Contact Length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f")
-    # 三个 checkbox 横向排列，并下移（在 CCLmax 下方添加空行，使其与 Free PSA 对齐）
-    st.markdown("<br>", unsafe_allow_html=True)  # 增加一个空行使 checkbox 下移
-    col_bulge, col_disrupt, col_retract = st.columns(3)
-    with col_bulge:
-        bulge = st.checkbox("Capsular Bulging", value=False)
-    with col_disrupt:
-        disruption = st.checkbox("Capsular Disruption", value=False)
-    with col_retract:
-        retraction = st.checkbox("Capsular Retraction", value=False)
-
+# ---- 构建病例并绘图 ----
 case = {
     "f/tPSA": ftpsa,
     "fPSA": fpsa,
@@ -461,13 +457,11 @@ if prob >= 0.351:
 else:
     col_risk.success("Low Risk of EPE (< 0.351)")
 
-# 直接显示图形，不再用 st.subheader（标题已嵌入图形）
 st.pyplot(fig_nomogram)
 
 fig_curve = plot_probability_curve(total_score, prob)
 st.pyplot(fig_curve)
 
-# 下载按钮
 buf = combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600)
 st.download_button(
     label="📥 Download Full Image (600 DPI)",
