@@ -2,12 +2,9 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.special import expit
-from datetime import datetime
-from io import BytesIO
-from PIL import Image, ImageDraw, ImageFont
 
 # ============================================================
-# 1. 模型参数
+# 1. 模型参数（与列线图代码完全一致）
 # ============================================================
 intercept = -1.859
 coef = {
@@ -19,6 +16,7 @@ coef = {
     "Capsular retraction": 0.701
 }
 
+# 对数转换所需的均值和标准差（来自训练集）
 mu_fpsa = 0.6659
 sigma_fpsa = 0.9259
 mu_ftpsa = -2.0339
@@ -26,6 +24,7 @@ sigma_ftpsa = 0.7558
 mu_cc = 34.566
 sigma_cc = 35.530
 
+# 各变量的原始值范围（2.5% ~ 97.5% 分位数）
 ranges = {
     "f/tPSA": (0.04, 0.77),
     "fPSA": (0.49, 21.88),
@@ -36,6 +35,7 @@ ranges = {
 }
 binary_vars = ["Capsular bulging", "Capsular disruption", "Capsular retraction"]
 
+# ===== 变量显示名称（列线图轴标签） =====
 var_display_names = {
     "f/tPSA": "Free/Total PSA",
     "fPSA": "Free PSA",
@@ -45,8 +45,9 @@ var_display_names = {
     "Capsular retraction": "Capsular Retraction"
 }
 
-# ----- 列线图分数计算 -----
+# ----- 计算列线图分数体系（与列线图代码完全一致） -----
 def get_lp(var, x_raw):
+    """计算线性预测值（不含截距）"""
     if var == "CCLmax":
         return coef[var] * (x_raw - mu_cc) / sigma_cc
     elif var == "fPSA":
@@ -58,6 +59,7 @@ def get_lp(var, x_raw):
     else:
         return coef[var] * x_raw
 
+# 基线值：f/tPSA取最大值（反转），其余取最小值
 baseline_values = {}
 for var in coef:
     if var == "f/tPSA":
@@ -65,6 +67,7 @@ for var in coef:
     else:
         baseline_values[var] = ranges[var][0]
 
+# 计算 scale 使得基线到最大风险对应 100 分（如需要可扩展）
 lp_all_max = sum(get_lp(v, ranges[v][1]) for v in coef)
 baseline_lp = sum(get_lp(v, baseline_values[v]) for v in coef)
 logit_baseline = baseline_lp + intercept
@@ -83,10 +86,12 @@ else:
 MAX_POINTS = int(np.ceil(MAX_POINTS / 10) * 10)
 
 def calc_points(var, x_raw):
+    """计算单个变量的得分（点数）"""
     base_lp = get_lp(var, baseline_values[var])
     return (get_lp(var, x_raw) - base_lp) * scale
 
 def inv_calc_points(var, points):
+    """根据得分反推原始值（用于绘制刻度）"""
     base_lp = get_lp(var, baseline_values[var])
     lp_val = points / scale + base_lp
     if var == "CCLmax":
@@ -101,11 +106,17 @@ def inv_calc_points(var, points):
         return None
 
 # ============================================================
-# 2. 列线图绘图
+# 2. 绘图函数：列线图（含红点标记）
 # ============================================================
 def plot_nomogram(case):
+    """
+    绘制列线图，并在每个变量轴、总分轴、风险轴标记红点
+    case: dict, 包含所有变量的值
+    返回 matplotlib.figure.Figure
+    """
+    # 绘图参数（与列线图代码一致）
     figsize = (12, 11)
-    left_margin = 50
+    left_margin = 50   # 适当增加左侧空白，避免标签重叠
     axis_gap = 1.0
     y_points = 9.5
     y_ftpsa  = y_points - axis_gap
@@ -246,6 +257,7 @@ def plot_nomogram(case):
     else:
         st.warning("概率轴无有效刻度，请检查模型参数。")
 
+    # 总分红点
     total_score = 0.0
     for var in variables:
         raw_val = case[var]
@@ -270,9 +282,10 @@ def plot_nomogram(case):
     return fig, total_score, prob_case
 
 # ============================================================
-# 3. 概率曲线图
+# 3. 概率曲线图（与当前工具类似，但使用新的总分体系）
 # ============================================================
 def plot_probability_curve(total_score, prob_case):
+    """绘制总分-概率曲线，并标记当前点"""
     fig, ax = plt.subplots(figsize=(10, 5))
     t_all = np.linspace(0, MAX_POINTS * 1.2, 200)
     logit_all = logit_baseline + t_all / scale
@@ -300,152 +313,9 @@ def plot_probability_curve(total_score, prob_case):
     return fig
 
 # ============================================================
-# 4. 合并图片下载
-# ============================================================
-def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
-    try:
-        buf1 = BytesIO()
-        fig_nomogram.savefig(buf1, format='png', dpi=dpi, bbox_inches='tight')
-        buf1.seek(0)
-        img1 = Image.open(buf1)
-
-        buf2 = BytesIO()
-        fig_curve.savefig(buf2, format='png', dpi=dpi, bbox_inches='tight')
-        buf2.seek(0)
-        img2 = Image.open(buf2)
-
-        # ----- 可调参数（控制下载图片的间距） -----
-        title_font_size = 50
-        info_font_size = 36
-        section_font_size = 36
-        line_height_ratio = 1.3
-        spacing_after_title = 10      # 标题→日期
-        spacing_after_date = 10       # 日期→输入
-        spacing_after_input = 10      # 输入→结果
-        spacing_after_result = 20     # 结果→分隔线
-        spacing_after_line = 10       # 分隔线→第一个子标题
-        spacing_before_img = 10       # 子标题→图片
-        spacing_between_sections = 5  # 列线图与概率曲线之间
-        bottom_padding = 30
-        top_padding = 20
-        # -----------------------------------------
-
-        try:
-            title_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", title_font_size)
-            info_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", info_font_size)
-            section_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", section_font_size)
-        except:
-            try:
-                title_font = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", title_font_size)
-                info_font = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", info_font_size)
-                section_font = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", section_font_size)
-            except:
-                title_font = info_font = section_font = ImageFont.load_default()
-
-        line_height_title = int(title_font_size * line_height_ratio)
-        line_height_info = int(info_font_size * line_height_ratio)
-        line_height_section = int(section_font_size * line_height_ratio)
-
-        info_height = (top_padding +
-                       line_height_title + spacing_after_title +
-                       line_height_info + spacing_after_date +
-                       line_height_info + spacing_after_input +
-                       line_height_info + spacing_after_result +
-                       spacing_after_line)
-
-        section_title_height = line_height_section + spacing_before_img
-        max_width = max(img1.width, img2.width)
-        total_height = (info_height +
-                        section_title_height + img1.height +
-                        section_title_height + img2.height +
-                        spacing_between_sections + bottom_padding)
-
-        combined = Image.new('RGB', (max_width, total_height), 'white')
-        draw = ImageDraw.Draw(combined)
-
-        y = top_padding
-        draw.text((20, y), "Extraprostatic Extension Risk Calculator", fill='black', font=title_font)
-        y += line_height_title + spacing_after_title
-
-        now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        draw.text((20, y), f"Date: {now}", fill='black', font=info_font)
-        y += line_height_info + spacing_after_date
-
-        info = (f"Input: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL, "
-                f"CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
-                f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}")
-        draw.text((20, y), info, fill='black', font=info_font)
-        y += line_height_info + spacing_after_input
-
-        result = f"Total Points: {total_score:.1f}, Probability: {prob:.3f}"
-        draw.text((20, y), result, fill='black', font=info_font)
-        y += line_height_info + spacing_after_result
-
-        draw.line((0, y, max_width, y), fill='gray', width=3)
-        y += spacing_after_line
-
-        draw.text((20, y), "Nomogram with Current Case", fill='black', font=section_font)
-        y += line_height_section + spacing_before_img
-        combined.paste(img1, (0, y))
-        y += img1.height
-
-        y += spacing_between_sections
-        draw.text((20, y), "Total Points → Probability Curve", fill='black', font=section_font)
-        y += line_height_section + spacing_before_img
-        combined.paste(img2, (0, y))
-
-        buf_combined = BytesIO()
-        combined.save(buf_combined, format='PNG', dpi=(dpi, dpi))
-        buf_combined.seek(0)
-        return buf_combined
-
-    except Exception as e:
-        st.error(f"生成图片时出错：{e}")
-        import traceback
-        st.error(traceback.format_exc())
-        dummy = Image.new('RGB', (100, 100), 'white')
-        buf = BytesIO()
-        dummy.save(buf, format='PNG')
-        buf.seek(0)
-        return buf
-
-# ============================================================
-# 5. Streamlit 主界面 + CSS 自定义间距
+# 4. Streamlit 界面
 # ============================================================
 st.set_page_config(page_title="Extraprostatic Extension Risk Calculator", layout="wide")
-
-# ===== CSS 自定义间距（可自由调整） =====
-st.markdown("""
-<style>
-    /* 1. 页面主标题 (h1) */
-    h1 {
-        margin-top: 0px !important;
-        margin-bottom: -5px !important;
-    }
-    /* 2. 二级标题 (h2) – 例如 "Clinical Variables"、"MRI Semantic Features" */
-    h2 {
-        margin-top: -5px !important;
-        margin-bottom: -5px !important;
-    }
-    /* 3. 所有元素容器（输入框、按钮、图表、指标卡等） */
-    .element-container {
-        margin-top: -10px !important;
-        margin-bottom: -10px !important;
-    }
-    /* 4. 专门控制 st.pyplot 图表（列线图和概率曲线） */
-    .stImage, .stPlotlyChart {
-        margin-top: -15px !important;
-        margin-bottom: -15px !important;
-    }
-    /* 5. 整个内容区的内边距 */
-    .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-# ==========================================
-
 st.title("Extraprostatic Extension Risk Calculator")
 st.markdown("Predict the probability of extraprostatic extension using MRI semantic features and clinical variables")
 
@@ -489,13 +359,5 @@ st.pyplot(fig_nomogram)
 st.subheader("Total Points → Probability Curve")
 fig_curve = plot_probability_curve(total_score, prob)
 st.pyplot(fig_curve)
-
-buf = combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600)
-st.download_button(
-    label="📥 Download Full Image (600 DPI)",
-    data=buf,
-    file_name="nomogram_curve.png",
-    mime="image/png"
-)
 
 st.caption("* All score calculations follow the nomogram scaling (baseline to maximum risk = 100 points, adjusted for 0.9 probability). The red dots on the nomogram indicate the contribution of each variable and the resulting total points and risk.")
