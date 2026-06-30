@@ -347,10 +347,11 @@ with col1:
     st.subheader("Clinical Variables")
     ftpsa = st.number_input("free/total PSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f")
     fpsa = st.number_input("free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.2f")
-    cclmax = st.number_input("capsular contact length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f")
+    
 
 with col2:
     st.subheader("MRI Semantic Features")
+    cclmax = st.number_input("capsular contact length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f")
     bulge = st.checkbox("Capsular bulging", value=False)
     disruption = st.checkbox("Capsular disruption", value=False)
     retraction = st.checkbox("Capsular retraction", value=False)
