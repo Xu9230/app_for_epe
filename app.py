@@ -420,12 +420,12 @@ st.markdown("""
     /* 统一所有标签字体（数字输入框和 checkbox） */
     .stNumberInput label,
     .stCheckbox label {
-        font-size: 20px !important;
+        font-size: 30px !important;
         font-weight: bold !important;
     }
     /* 下移 checkbox 使其与输入框对齐 */
     .stCheckbox {
-        margin-top: 8px !important;
+        margin-top: 16px !important;
     }
     /* 分割线 */
     hr {
