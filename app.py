@@ -7,14 +7,12 @@ from io import BytesIO
 from PIL import Image
 
 # ============================================================
-# 全局字体设置（Arial）
+# 全局字体设置（Arial）和模型参数（完全不变）
 # ============================================================
 plt.rcParams['font.family'] = 'Arial'
 plt.rcParams['axes.unicode_minus'] = False
 
-# ============================================================
-# 1. 模型参数
-# ============================================================
+# ----- 模型参数（固定，不可修改）-----
 intercept = -1.859
 coef = {
     "f/tPSA": -0.368,
@@ -24,14 +22,12 @@ coef = {
     "Capsular disruption": 1.107,
     "Capsular retraction": 0.701
 }
-
 mu_fpsa = 0.6659
 sigma_fpsa = 0.9259
 mu_ftpsa = -2.0339
 sigma_ftpsa = 0.7558
 mu_cc = 34.566
 sigma_cc = 35.530
-
 ranges = {
     "f/tPSA": (0.04, 0.77),
     "fPSA": (0.49, 21.88),
@@ -41,7 +37,6 @@ ranges = {
     "Capsular retraction": (0, 1)
 }
 binary_vars = ["Capsular bulging", "Capsular disruption", "Capsular retraction"]
-
 var_display_names = {
     "f/tPSA": "Free/Total PSA",
     "fPSA": "Free PSA",
@@ -51,7 +46,7 @@ var_display_names = {
     "Capsular retraction": "Capsular Retraction"
 }
 
-# ----- 计算列线图分数体系 -----
+# ----- 分数计算函数（不变）-----
 def get_lp(var, x_raw):
     if var == "CCLmax":
         return coef[var] * (x_raw - mu_cc) / sigma_cc
@@ -107,11 +102,12 @@ def inv_calc_points(var, points):
         return None
 
 # ============================================================
-# 2. 绘图函数：列线图（调整字体大小为适应A4比例）
+# 绘图函数（列线图和概率曲线，保持比例不变）
 # ============================================================
 def plot_nomogram(case):
-    figsize = (10, 8)          # 调整为适合A4比例的尺寸
-    left_margin = 40
+    # 根据MAX_POINTS动态调整left_margin使轴长度占2/3
+    left_margin = int((MAX_POINTS + 10) / 2)  # 使左侧变量名区域约占1/3
+    figsize = (12, 9)   # 保持宽高比
     axis_gap = 1.0
     y_points = 9.5
     y_ftpsa  = y_points - axis_gap
@@ -123,7 +119,6 @@ def plot_nomogram(case):
     y_total  = y_retract - axis_gap
     y_prob   = y_total  - axis_gap
 
-    # 字体大小相应调整
     label_fontsize = 14
     tick_fontsize = 12
     title_fontsize = 18
@@ -133,7 +128,6 @@ def plot_nomogram(case):
     tick_length = 0.15
     tick_width = 1.0
     label_offset = 0.25
-
     points_tick_direction = 'down'
     others_tick_direction = 'up'
 
@@ -152,6 +146,7 @@ def plot_nomogram(case):
     ax.set_ylim(-0.5, y_points + 1.5)
     ax.axis('off')
 
+    # 图形标题（左对齐）
     ax.text(-left_margin + 5, y_points + 0.7, "Nomogram with Current Case Marked",
             fontsize=title_fontsize, fontweight='bold', ha='left', va='bottom',
             color='black', family='Arial')
@@ -165,7 +160,6 @@ def plot_nomogram(case):
     for var in variables:
         y = var_y[var]
         xmin, xmax = ranges[var]
-
         if var in binary_vars:
             ticks = np.array([0, 1])
             tick_points = np.array([calc_points(var, t) for t in ticks])
@@ -181,18 +175,13 @@ def plot_nomogram(case):
 
         ax.plot([tick_points.min(), tick_points.max()], [y, y],
                 color=line_color, lw=line_width)
-
         tick_shift, label_shift = get_tick_offsets(others_tick_direction)
-
         for t, tp in zip(ticks, tick_points):
             ax.plot([tp, tp], [y, y + tick_shift], color=line_color, lw=tick_width)
             if var in binary_vars:
                 label = f"{int(t)}"
             else:
-                if np.isclose(t, 0.0, atol=1e-6):
-                    label = "0"
-                else:
-                    label = f"{t:.1f}"
+                label = f"{t:.1f}" if not np.isclose(t, 0.0, atol=1e-6) else "0"
             va = 'bottom' if label_shift > 0 else 'top'
             ax.text(tp, y + label_shift, label, ha='center', va=va,
                     fontsize=tick_fontsize, color=text_color)
@@ -212,7 +201,7 @@ def plot_nomogram(case):
         ax.text(x_red - 2, y + 0.2, f'{score:.1f}', fontsize=10, color='red',
                 ha='right', va='bottom', fontweight='bold')
 
-    # Points 轴
+    # Points轴
     ax.plot([0, MAX_POINTS], [y_points, y_points], color=line_color, lw=line_width)
     tick_shift, label_shift = get_tick_offsets(points_tick_direction)
     step = max(10, int(MAX_POINTS / 10))
@@ -224,7 +213,7 @@ def plot_nomogram(case):
     ax.text(-left_margin + 5, y_points, "Points", ha='left', va='center',
             fontsize=label_fontsize, color=text_color, fontweight='bold')
 
-    # Total Points 轴
+    # Total Points轴
     ax.plot([0, MAX_POINTS], [y_total, y_total], color=line_color, lw=line_width)
     tick_shift, label_shift = get_tick_offsets(others_tick_direction)
     for p in range(0, MAX_POINTS + step, step):
@@ -235,7 +224,7 @@ def plot_nomogram(case):
     ax.text(-left_margin + 5, y_total, "Total Points", ha='left', va='center',
             fontsize=label_fontsize, color=text_color, fontweight='bold')
 
-    # Risk 轴
+    # Risk轴
     prob_ticks = np.linspace(0.1, 0.9, 9)
     logit_ticks = np.log(prob_ticks / (1 - prob_ticks))
     point_ticks = (logit_ticks - logit_baseline) * scale
@@ -254,8 +243,6 @@ def plot_nomogram(case):
                     fontsize=tick_fontsize, color=text_color)
         ax.text(-left_margin + 5, y_prob, "Risk", ha='left', va='center',
                 fontsize=label_fontsize, color=text_color, fontweight='bold')
-    else:
-        st.warning("概率轴无有效刻度，请检查模型参数。")
 
     total_score = 0.0
     for var in variables:
@@ -280,11 +267,8 @@ def plot_nomogram(case):
     plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
     return fig, total_score, prob_case
 
-# ============================================================
-# 3. 概率曲线图（与列线图尺寸一致）
-# ============================================================
 def plot_probability_curve(total_score, prob_case):
-    fig, ax = plt.subplots(figsize=(10, 8))   # 与列线图尺寸相同
+    fig, ax = plt.subplots(figsize=(12, 9))   # 与列线图尺寸一致
     t_all = np.linspace(0, MAX_POINTS * 1.2, 200)
     logit_all = logit_baseline + t_all / scale
     prob_all = expit(logit_all)
@@ -297,7 +281,8 @@ def plot_probability_curve(total_score, prob_case):
     ax.set_yticks(np.arange(0, 1.01, 0.1))
     ax.grid(alpha=0.2)
 
-    ax.set_title("Total Points → Probability Curve", fontsize=18, fontweight='bold', pad=15, family='Arial', loc='left')
+    ax.set_title("Total Points → Probability Curve", fontsize=18, fontweight='bold',
+                 pad=15, family='Arial', loc='left')
 
     ax.plot(total_score, prob_case, 'ro', markersize=10, markeredgecolor='darkred')
     ax.text(total_score + 2, prob_case - 0.02,
@@ -314,7 +299,7 @@ def plot_probability_curve(total_score, prob_case):
     return fig
 
 # ============================================================
-# 4. 下载图片生成（保持不变）
+# 下载图片生成（保持不变）
 # ============================================================
 def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     try:
@@ -322,17 +307,15 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         fig_nomogram.savefig(buf1, format='png', dpi=dpi, bbox_inches='tight')
         buf1.seek(0)
         img1 = Image.open(buf1)
-
         buf2 = BytesIO()
         fig_curve.savefig(buf2, format='png', dpi=dpi, bbox_inches='tight')
         buf2.seek(0)
         img2 = Image.open(buf2)
 
-        # 信息区宽度与列线图匹配
         nomogram_width_inch = fig_nomogram.get_size_inches()[0]
         lines = [
             ("Extraprostatic Extension Risk Calculator", 30, 'bold'),
-            (f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", 20, 'normal'),
+            (f"Date: {datetime.now().strftime('%Y-%m-%d')}", 20, 'normal'),
             (f"Clinical: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL", 20, 'normal'),
             (f"MRI: CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
              f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}", 20, 'normal'),
@@ -345,14 +328,12 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         ax_info.axis('off')
         ax_info.set_xlim(0, 1)
         ax_info.set_ylim(0, 1)
-
         y_start = 0.95 - top_margin_extra
         y_step = 0.18
         for i, (text, size, weight) in enumerate(lines):
             ax_info.text(0.01, y_start - i*y_step, text, fontsize=size, va='top',
                         fontweight=weight, family='Arial')
         ax_info.axhline(y=0.05, color='gray', linewidth=2)
-
         plt.tight_layout(pad=0.1)
         buf_info = BytesIO()
         fig_info.savefig(buf_info, format='png', dpi=dpi, bbox_inches='tight')
@@ -369,12 +350,10 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         combined.paste(img1, (0, y_offset))
         y_offset += img1.height + 10
         combined.paste(img2, (0, y_offset))
-
         buf_combined = BytesIO()
         combined.save(buf_combined, format='PNG', dpi=(dpi, dpi))
         buf_combined.seek(0)
         return buf_combined
-
     except Exception as e:
         st.error(f"生成图片时出错：{e}")
         import traceback
@@ -386,161 +365,166 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
         return buf
 
 # ============================================================
-# 5. Streamlit 界面（A4比例，三部分均分）
+# Streamlit 界面（严格按照用户指定布局）
 # ============================================================
 st.set_page_config(page_title="Extraprostatic Extension Risk Calculator", layout="wide")
 
-# ========== 自定义CSS实现A4比例和三等分布局 ==========
+# ---------- 自定义 CSS 实现边距、对齐和字体 ----------
 st.markdown("""
 <style>
-    /* 移除默认内边距 */
-    .block-container {
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        max-width: 100% !important;
-    }
-    /* 使主容器高度为视口高度，并垂直分为三部分 */
+    /* 全局边距 2.5cm */
     .main-container {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        gap: 0.2rem;
+        padding: 2.5cm !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
     }
-    .section {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;  /* 允许flex收缩 */
-        border-bottom: 1px solid #e0e0e0;
-        padding: 0.2rem 0;
-    }
-    .section:last-child {
-        border-bottom: none;
-    }
-    /* 输入区域内部两列布局 */
-    .input-row {
-        display: flex;
-        gap: 2rem;
-        height: 100%;
-    }
-    .input-col {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-    /* 调整标题和标签字体 */
-    h1 {
-        font-size: 26px !important;
-        font-family: Arial, sans-serif !important;
+    /* 标题样式 */
+    .main-title {
+        font-family: Arial, sans-serif;
+        font-size: 30px !important;
+        font-weight: bold !important;
+        text-align: center !important;
         margin: 0 !important;
         padding: 0 !important;
     }
-    h2 {
-        font-size: 18px !important;
-        font-family: Arial, sans-serif !important;
+    .date-right {
+        font-family: Arial, sans-serif;
+        font-size: 10px !important;
+        text-align: right !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .subtitle-left {
+        font-family: Arial, sans-serif;
+        font-size: 10px !important;
+        text-align: left !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .section-title {
+        font-family: Arial, sans-serif;
+        font-size: 20px !important;
+        font-weight: bold !important;
         margin: 0.2rem 0 !important;
     }
-    .stNumberInput label, .stCheckbox label {
-        font-family: Arial, sans-serif !important;
-        font-size: 14px !important;
-    }
-    .date-text {
-        font-size: 14px;
+    .label-text {
         font-family: Arial, sans-serif;
-        margin: 0 !important;
+        font-size: 10px !important;
+        font-weight: bold !important;
     }
-    /* 使图表充满容器 */
-    .stImage, .stPlotlyChart, .stPyplot {
-        width: 100% !important;
+    /* 调整输入框高度与标签匹配 */
+    .stNumberInput input, .stTextInput input {
+        height: 30px !important;
+        font-size: 10px !important;
+    }
+    .stCheckbox label {
+        font-size: 10px !important;
+        font-weight: bold !important;
+    }
+    /* 分割线 */
+    hr {
+        margin: 0.5rem 0 !important;
+    }
+    /* 风险框高度与总分、分数对齐 */
+    .risk-box {
         height: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
-    /* 隐藏多余滚动条 */
-    .main-container {
-        overflow: hidden;
+    /* 指标卡样式 */
+    .stMetric {
+        font-size: 20px !important;
+        font-weight: bold !important;
     }
-    .element-container {
-        margin: 0 !important;
-        padding: 0 !important;
+    .stMetric label {
+        font-size: 20px !important;
+        font-weight: bold !important;
+    }
+    /* 列线图和概率曲线图容器 */
+    .figure-container {
+        width: 100%;
+        height: auto;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ========== 构建主容器 ==========
+# ---------- 页面内容 ----------
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
-# ---- 第一部分：输入区 ----
-with st.container():
-    st.markdown('<div class="section">', unsafe_allow_html=True)
-    # 日期和标题（占少量空间）
-    current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-    st.markdown(f'<p class="date-text"><strong>Date: {current_date}</strong></p>', unsafe_allow_html=True)
-    st.title("Extraprostatic Extension Risk Calculator")
-    st.markdown("Predict the probability of extraprostatic extension using MRI semantic features and clinical variables")
-    
-    # 输入两列
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Clinical Variables")
-        ftpsa = st.number_input("Free/Total PSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f")
-        fpsa = st.number_input("Free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.2f")
-    with col2:
-        st.subheader("MRI Semantic Features")
-        cclmax = st.number_input("Maximum Capsular Contact Length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f")
-        # 三个checkbox横向排列
-        col_bulge, col_disrupt, col_retract = st.columns(3)
-        with col_bulge:
-            bulge = st.checkbox("Capsular Bulging", value=False)
-        with col_disrupt:
-            disruption = st.checkbox("Capsular Disruption", value=False)
-        with col_retract:
-            retraction = st.checkbox("Capsular Retraction", value=False)
-    st.markdown('</div>', unsafe_allow_html=True)
+# 第一行：标题（居中，30号，加粗）
+st.markdown('<p class="main-title">Extraprostatic Extension Risk Calculator</p>', unsafe_allow_html=True)
 
-# ---- 第二部分：列线图 ----
-with st.container():
-    st.markdown('<div class="section" style="border-bottom: 1px solid #e0e0e0;">', unsafe_allow_html=True)
-    # 构建case
-    case = {
-        "f/tPSA": ftpsa,
-        "fPSA": fpsa,
-        "CCLmax": cclmax,
-        "Capsular bulging": bulge,
-        "Capsular disruption": disruption,
-        "Capsular retraction": retraction
-    }
-    fig_nomogram, total_score, prob = plot_nomogram(case)
-    # 显示列线图（使用容器宽度）
-    st.pyplot(fig_nomogram, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+# 第二行：日期（右对齐，10号）
+current_date = datetime.now().strftime("%Y-%m-%d")
+st.markdown(f'<p class="date-right">{current_date}</p>', unsafe_allow_html=True)
 
-# ---- 第三部分：概率曲线 ----
-with st.container():
-    st.markdown('<div class="section">', unsafe_allow_html=True)
-    # 显示总分和概率指标（放在曲线图上方）
-    col_score, col_prob, col_risk = st.columns(3)
-    col_score.metric("Total Points", f"{total_score:.1f}")
-    col_prob.metric("Probability", f"{prob:.3f}")
+# 第三行：副标题（左对齐，10号）
+st.markdown('<p class="subtitle-left">Predict the probability of extraprostatic extension using MRI semantic features and clinical variables</p>', unsafe_allow_html=True)
+
+# 第四行：两列（Clinical Variables 和 MRI Semantic Features）
+col1, col2 = st.columns(2)
+with col1:
+    st.markdown('<p class="section-title">Clinical Variables</p>', unsafe_allow_html=True)
+    # 输入框标签使用 label_text 类
+    ftpsa = st.number_input("Free/Total PSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f", key="ftpsa")
+    fpsa = st.number_input("Free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.2f", key="fpsa")
+with col2:
+    st.markdown('<p class="section-title">MRI Semantic Features</p>', unsafe_allow_html=True)
+    cclmax = st.number_input("Maximum Capsular Contact Length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f", key="cclmax")
+    # 三个checkbox横向排列
+    col_b, col_d, col_r = st.columns(3)
+    with col_b:
+        bulge = st.checkbox("Capsular Bulging", value=False)
+    with col_d:
+        disruption = st.checkbox("Capsular Disruption", value=False)
+    with col_r:
+        retraction = st.checkbox("Capsular Retraction", value=False)
+
+# 构建病例字典
+case = {
+    "f/tPSA": ftpsa,
+    "fPSA": fpsa,
+    "CCLmax": cclmax,
+    "Capsular bulging": bulge,
+    "Capsular disruption": disruption,
+    "Capsular retraction": retraction
+}
+
+# 计算并绘制
+fig_nomogram, total_score, prob = plot_nomogram(case)
+fig_curve = plot_probability_curve(total_score, prob)
+
+# ---------- 分割线 ----------
+st.markdown("---")
+
+# ---------- 总分、概率和风险框（三列等宽） ----------
+col_score, col_prob, col_risk = st.columns(3)
+with col_score:
+    st.metric(label="Total Points", value=f"{total_score:.1f}")
+with col_prob:
+    st.metric(label="Probability", value=f"{prob:.3f}")
+with col_risk:
     if prob >= 0.351:
-        col_risk.error("High Risk of EPE (≥ 0.351)")
+        st.error("High Risk of EPE (≥ 0.351)")
     else:
-        col_risk.success("Low Risk of EPE (< 0.351)")
-    
-    fig_curve = plot_probability_curve(total_score, prob)
-    st.pyplot(fig_curve, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.success("Low Risk of EPE (< 0.351)")
 
-st.markdown('</div>', unsafe_allow_html=True)  # 结束 main-container
+# ---------- 列线图（占2/3轴长，1/3图例已在图形内实现） ----------
+st.pyplot(fig_nomogram, use_container_width=True)
 
-# ---- 下载按钮和脚注（放置在页面底部外部） ----
+# ---------- 概率曲线 ----------
+st.pyplot(fig_curve, use_container_width=True)
+
+# ---------- 下载按钮 ----------
 buf = combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600)
 st.download_button(
     label="📥 Download Full Image (600 DPI)",
     data=buf,
-    file_name=f"nomogram_curve_{datetime.now().strftime('%Y%m%d_%H%M')}.png",
+    file_name=f"nomogram_curve_{datetime.now().strftime('%Y%m%d')}.png",
     mime="image/png"
 )
 
 st.caption("* All score calculations follow the nomogram scaling (baseline to maximum risk = 100 points, adjusted for 0.9 probability). The red dots on the nomogram indicate the contribution of each variable and the resulting total points and risk.")
+
+st.markdown('</div>', unsafe_allow_html=True)
