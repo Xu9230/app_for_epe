@@ -107,7 +107,7 @@ def inv_calc_points(var, points):
 def plot_nomogram(case):
     # 根据MAX_POINTS动态调整left_margin使轴长度占2/3
     left_margin = int((MAX_POINTS + 10) / 2)  # 使左侧变量名区域约占1/3
-    figsize = (8, 6)   # 保持宽高比
+    figsize = (12, 8)   # 保持宽高比
     axis_gap = 1.0
     y_points = 9.5
     y_ftpsa  = y_points - axis_gap
@@ -409,21 +409,21 @@ st.markdown("""
     }
     .label-text {
         font-family: Arial, sans-serif;
-        font-size: 20px !important;
+        font-size: 30px !important;
         font-weight: bold !important;
     }
     /* 调整输入框高度与标签匹配 */
     .stNumberInput input, .stTextInput input {
         height: 40px !important;
-        font-size: 30px !important;
+        font-size: 20px !important;
     }
     .stCheckbox label {
-        font-size: 10px !important;
+        font-size: 20px !important;
         font-weight: bold !important;
     }
     /* 分割线 */
     hr {
-        margin: 0.5rem 0 !important;
+        margin: 1rem 0 !important;
     }
     /* 风险框高度与总分、分数对齐 */
     .risk-box {
@@ -434,7 +434,7 @@ st.markdown("""
     }
     /* 指标卡样式 */
     .stMetric {
-        font-size: 20px !important;
+        font-size: 30px !important;
         font-weight: bold !important;
     }
     .stMetric label {
