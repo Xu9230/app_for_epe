@@ -412,23 +412,26 @@ st.markdown("""
         font-size: 30px !important;
         font-weight: bold !important;
     }
-    .stNumberInput label {
-    font-size: 30px !important;   /* 改为您想要的尺寸 */
-    }
-    /* 调整输入框高度与标签匹配 */
+    /* 输入框内部文字大小 */
     .stNumberInput input, .stTextInput input {
         height: 40px !important;
         font-size: 20px !important;
     }
+    /* 统一所有标签字体（数字输入框和 checkbox） */
+    .stNumberInput label,
     .stCheckbox label {
         font-size: 20px !important;
         font-weight: bold !important;
+    }
+    /* 下移 checkbox 使其与输入框对齐 */
+    .stCheckbox {
+        margin-top: 8px !important;
     }
     /* 分割线 */
     hr {
         margin: 1rem 0 !important;
     }
-    /* 风险框高度与总分、分数对齐 */
+    /* 风险框 */
     .risk-box {
         height: 100% !important;
         display: flex !important;
