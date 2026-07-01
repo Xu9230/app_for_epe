@@ -425,7 +425,7 @@ st.markdown("""
     }
     /* 下移 checkbox 使其与输入框对齐 */
     .stCheckbox {
-        margin-top: 16px !important;
+        margin-top: 32px !important;
     }
     /* 分割线 */
     hr {
