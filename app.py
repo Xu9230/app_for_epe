@@ -107,7 +107,7 @@ def inv_calc_points(var, points):
 def plot_nomogram(case):
     # 根据MAX_POINTS动态调整left_margin使轴长度占2/3
     left_margin = int((MAX_POINTS + 10) / 2)  # 使左侧变量名区域约占1/3
-    figsize = (12, 9)   # 保持宽高比
+    figsize = (8, 6)   # 保持宽高比
     axis_gap = 1.0
     y_points = 9.5
     y_ftpsa  = y_points - axis_gap
@@ -381,7 +381,7 @@ st.markdown("""
     /* 标题样式 */
     .main-title {
         font-family: Arial, sans-serif;
-        font-size: 30px !important;
+        font-size: 60px !important;
         font-weight: bold !important;
         text-align: center !important;
         margin: 0 !important;
@@ -389,33 +389,33 @@ st.markdown("""
     }
     .date-right {
         font-family: Arial, sans-serif;
-        font-size: 10px !important;
+        font-size: 20px !important;
         text-align: right !important;
         margin: 0 !important;
         padding: 0 !important;
     }
     .subtitle-left {
         font-family: Arial, sans-serif;
-        font-size: 10px !important;
+        font-size: 20px !important;
         text-align: left !important;
         margin: 0 !important;
         padding: 0 !important;
     }
     .section-title {
         font-family: Arial, sans-serif;
-        font-size: 20px !important;
+        font-size: 40px !important;
         font-weight: bold !important;
         margin: 0.2rem 0 !important;
     }
     .label-text {
         font-family: Arial, sans-serif;
-        font-size: 10px !important;
+        font-size: 20px !important;
         font-weight: bold !important;
     }
     /* 调整输入框高度与标签匹配 */
     .stNumberInput input, .stTextInput input {
-        height: 30px !important;
-        font-size: 10px !important;
+        height: 40px !important;
+        font-size: 30px !important;
     }
     .stCheckbox label {
         font-size: 10px !important;
