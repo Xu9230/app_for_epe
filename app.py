@@ -268,7 +268,7 @@ def plot_nomogram(case):
     return fig, total_score, prob_case
 
 def plot_probability_curve(total_score, prob_case):
-    fig, ax = plt.subplots(figsize=(12, 9))   # 与列线图尺寸一致
+    fig, ax = plt.subplots(figsize=(10, 8))   # 与列线图尺寸一致
     t_all = np.linspace(0, MAX_POINTS * 1.2, 200)
     logit_all = logit_baseline + t_all / scale
     prob_all = expit(logit_all)
@@ -411,6 +411,9 @@ st.markdown("""
         font-family: Arial, sans-serif;
         font-size: 30px !important;
         font-weight: bold !important;
+    }
+    .stNumberInput label {
+    font-size: 30px !important;   /* 改为您想要的尺寸 */
     }
     /* 调整输入框高度与标签匹配 */
     .stNumberInput input, .stTextInput input {
