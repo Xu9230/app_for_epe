@@ -474,7 +474,7 @@ with col1:
     st.markdown('<p class="section-title">Clinical Variables</p>', unsafe_allow_html=True)
     # 输入框标签使用 label_text 类
     ftpsa = st.number_input("Free/Total PSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f", key="ftpsa")
-    fpsa = st.number_input("Free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.2f", key="fpsa")
+    fpsa = st.number_input("Free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.3f", key="fpsa")
 with col2:
     st.markdown('<p class="section-title">MRI Semantic Features</p>', unsafe_allow_html=True)
     cclmax = st.number_input("Maximum Capsular Contact Length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f", key="cclmax")
