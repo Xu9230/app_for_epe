@@ -19,7 +19,7 @@ coef = {
     "fPSA": 0.377,
     "CCLmax": 1.054,
     "Capsular bulging": 1.095,
-    "Capsular disruption": 1.107,
+    "Capsular loss": 1.107,          # 原 "Capsular disruption"
     "Capsular retraction": 0.701
 }
 mu_fpsa = 0.6659
@@ -33,16 +33,16 @@ ranges = {
     "fPSA": (0.49, 21.88),
     "CCLmax": (0.0, 105.0),
     "Capsular bulging": (0, 1),
-    "Capsular disruption": (0, 1),
+    "Capsular loss": (0, 1),          # 原 "Capsular disruption"
     "Capsular retraction": (0, 1)
 }
-binary_vars = ["Capsular bulging", "Capsular disruption", "Capsular retraction"]
+binary_vars = ["Capsular bulging", "Capsular loss", "Capsular retraction"]  # 原 "Capsular disruption"
 var_display_names = {
     "f/tPSA": "Free/Total PSA",
     "fPSA": "Free PSA",
     "CCLmax": "CCLmax",
     "Capsular bulging": "Capsular Bulging",
-    "Capsular disruption": "Capsular Disruption",
+    "Capsular loss": "Capsular Loss",   # 原 "Capsular Disruption"
     "Capsular retraction": "Capsular Retraction"
 }
 
@@ -114,7 +114,7 @@ def plot_nomogram(case):
     y_fpsa   = y_ftpsa  - axis_gap
     y_cc     = y_fpsa   - axis_gap
     y_bulge  = y_cc     - axis_gap
-    y_disrupt = y_bulge - axis_gap
+    y_disrupt = y_bulge - axis_gap   # 此变量名未变，仍为 y_disrupt，但内容对应 "Capsular loss"
     y_retract = y_disrupt - axis_gap
     y_total  = y_retract - axis_gap
     y_prob   = y_total  - axis_gap
@@ -137,7 +137,7 @@ def plot_nomogram(case):
         "fPSA": y_fpsa,
         "CCLmax": y_cc,
         "Capsular bulging": y_bulge,
-        "Capsular disruption": y_disrupt,
+        "Capsular loss": y_disrupt,      # 原 "Capsular disruption"
         "Capsular retraction": y_retract
     }
 
@@ -318,7 +318,7 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
             (f"Date: {datetime.now().strftime('%Y-%m-%d')}", 20, 'normal'),
             (f"Clinical: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL", 20, 'normal'),
             (f"MRI: CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
-             f"Disruption={int(case['Capsular disruption'])}, Retraction={int(case['Capsular retraction'])}", 20, 'normal'),
+             f"Loss={int(case['Capsular loss'])}, Retraction={int(case['Capsular retraction'])}", 20, 'normal'),  # 原 Disruption -> Loss
             (f"Total Points: {total_score:.1f}, Probability: {prob:.3f}", 20, 'normal')
         ]
         top_margin_extra = 0.08
@@ -483,7 +483,7 @@ with col2:
     with col_b:
         bulge = st.checkbox("Capsular Bulging", value=False)
     with col_d:
-        disruption = st.checkbox("Capsular Disruption", value=False)
+        disruption = st.checkbox("Capsular Loss", value=False)   # 原 "Capsular Disruption"
     with col_r:
         retraction = st.checkbox("Capsular Retraction", value=False)
 
@@ -493,7 +493,7 @@ case = {
     "fPSA": fpsa,
     "CCLmax": cclmax,
     "Capsular bulging": bulge,
-    "Capsular disruption": disruption,
+    "Capsular loss": disruption,        # 原 "Capsular disruption"
     "Capsular retraction": retraction
 }
 
