@@ -17,9 +17,9 @@ intercept = -1.859
 coef = {
     "f/tPSA": -0.368,
     "fPSA": 0.377,
-    "CCLmax": 1.054,
-    "Capsular bulging": 1.095,
-    "Capsular loss": 1.107,          # 原 "Capsular disruption"
+    "mCCL": 1.054,                     # 原 CCLmax
+    "Capsular Bulge": 1.095,           # 原 Capsular bulging（首字母大写）
+    "Capsular loss": 1.107,
     "Capsular retraction": 0.701
 }
 mu_fpsa = 0.6659
@@ -31,24 +31,24 @@ sigma_cc = 35.530
 ranges = {
     "f/tPSA": (0.04, 0.77),
     "fPSA": (0.49, 21.88),
-    "CCLmax": (0.0, 105.0),
-    "Capsular bulging": (0, 1),
-    "Capsular loss": (0, 1),          # 原 "Capsular disruption"
+    "mCCL": (0.0, 105.0),              # 原 CCLmax
+    "Capsular Bulge": (0, 1),          # 原 Capsular bulging
+    "Capsular loss": (0, 1),
     "Capsular retraction": (0, 1)
 }
-binary_vars = ["Capsular bulging", "Capsular loss", "Capsular retraction"]  # 原 "Capsular disruption"
+binary_vars = ["Capsular Bulge", "Capsular loss", "Capsular retraction"]  # 原 Capsular bulging
 var_display_names = {
     "f/tPSA": "Free/Total PSA",
     "fPSA": "Free PSA",
-    "CCLmax": "CCLmax",
-    "Capsular bulging": "Capsular Bulging",
-    "Capsular loss": "Capsular Loss",   # 原 "Capsular Disruption"
+    "mCCL": "mCCL",                    # 原 CCLmax
+    "Capsular Bulge": "Capsular Bulge", # 原 Capsular Bulging
+    "Capsular loss": "Capsular Loss",
     "Capsular retraction": "Capsular Retraction"
 }
 
-# ----- 分数计算函数（不变）-----
+# ----- 分数计算函数（不变，仅修改判断变量名）-----
 def get_lp(var, x_raw):
-    if var == "CCLmax":
+    if var == "mCCL":                  # 原 CCLmax
         return coef[var] * (x_raw - mu_cc) / sigma_cc
     elif var == "fPSA":
         x_log = np.log(x_raw) if x_raw > 0 else np.log(1e-6)
@@ -90,7 +90,7 @@ def calc_points(var, x_raw):
 def inv_calc_points(var, points):
     base_lp = get_lp(var, baseline_values[var])
     lp_val = points / scale + base_lp
-    if var == "CCLmax":
+    if var == "mCCL":                  # 原 CCLmax
         return lp_val / coef[var] * sigma_cc + mu_cc
     elif var == "fPSA":
         log_x = lp_val / coef[var] * sigma_fpsa + mu_fpsa
@@ -114,7 +114,7 @@ def plot_nomogram(case):
     y_fpsa   = y_ftpsa  - axis_gap
     y_cc     = y_fpsa   - axis_gap
     y_bulge  = y_cc     - axis_gap
-    y_disrupt = y_bulge - axis_gap   # 此变量名未变，仍为 y_disrupt，但内容对应 "Capsular loss"
+    y_disrupt = y_bulge - axis_gap
     y_retract = y_disrupt - axis_gap
     y_total  = y_retract - axis_gap
     y_prob   = y_total  - axis_gap
@@ -135,9 +135,9 @@ def plot_nomogram(case):
     var_y = {
         "f/tPSA": y_ftpsa,
         "fPSA": y_fpsa,
-        "CCLmax": y_cc,
-        "Capsular bulging": y_bulge,
-        "Capsular loss": y_disrupt,      # 原 "Capsular disruption"
+        "mCCL": y_cc,                     # 原 CCLmax
+        "Capsular Bulge": y_bulge,        # 原 Capsular bulging
+        "Capsular loss": y_disrupt,
         "Capsular retraction": y_retract
     }
 
@@ -299,7 +299,7 @@ def plot_probability_curve(total_score, prob_case):
     return fig
 
 # ============================================================
-# 下载图片生成（保持不变）
+# 下载图片生成（保持不变，仅修改信息字符串中的变量名）
 # ============================================================
 def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
     try:
@@ -317,8 +317,8 @@ def combine_figures(fig_nomogram, fig_curve, case, total_score, prob, dpi=600):
             ("Extraprostatic Extension Risk Calculator", 30, 'bold'),
             (f"Date: {datetime.now().strftime('%Y-%m-%d')}", 20, 'normal'),
             (f"Clinical: f/tPSA={case['f/tPSA']:.3f}, fPSA={case['fPSA']:.2f} ng/mL", 20, 'normal'),
-            (f"MRI: CCLmax={case['CCLmax']:.1f} mm, Bulging={int(case['Capsular bulging'])}, "
-             f"Loss={int(case['Capsular loss'])}, Retraction={int(case['Capsular retraction'])}", 20, 'normal'),  # 原 Disruption -> Loss
+            (f"MRI: mCCL={case['mCCL']:.1f} mm, Bulge={int(case['Capsular Bulge'])}, "   # 修改此处
+             f"Loss={int(case['Capsular loss'])}, Retraction={int(case['Capsular retraction'])}", 20, 'normal'),
             (f"Total Points: {total_score:.1f}, Probability: {prob:.3f}", 20, 'normal')
         ]
         top_margin_extra = 0.08
@@ -472,28 +472,28 @@ st.markdown('<p class="subtitle-left">Predict the probability of extraprostatic 
 col1, col2 = st.columns(2)
 with col1:
     st.markdown('<p class="section-title">Clinical Variables</p>', unsafe_allow_html=True)
-    # 输入框标签使用 label_text 类
     ftpsa = st.number_input("Free/Total PSA", min_value=0.01, max_value=1.0, value=0.153, step=0.01, format="%.3f", key="ftpsa")
     fpsa = st.number_input("Free PSA (ng/mL)", min_value=0.1, max_value=30.0, value=2.56, step=0.1, format="%.3f", key="fpsa")
 with col2:
     st.markdown('<p class="section-title">MRI Semantic Features</p>', unsafe_allow_html=True)
-    cclmax = st.number_input("Maximum Capsular Contact Length (CCLmax, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f", key="cclmax")
-    # 三个checkbox横向排列
+    # 修改输入框标签为 Multiplanar Capsular Contact Length (mCCL, mm)
+    mCCL = st.number_input("Multiplanar Capsular Contact Length (mCCL, mm)", min_value=0.0, max_value=200.0, value=15.4, step=1.0, format="%.1f", key="mCCL")
+    # 三个checkbox横向排列，修改标签 Capsular Bulging -> Capsular Bulge
     col_b, col_d, col_r = st.columns(3)
     with col_b:
-        bulge = st.checkbox("Capsular Bulging", value=False)
+        bulge = st.checkbox("Capsular Bulge", value=False)   # 原 Capsular Bulging
     with col_d:
-        disruption = st.checkbox("Capsular Loss", value=False)   # 原 "Capsular Disruption"
+        disruption = st.checkbox("Capsular Loss", value=False)
     with col_r:
         retraction = st.checkbox("Capsular Retraction", value=False)
 
-# 构建病例字典
+# 构建病例字典（键名已更新）
 case = {
     "f/tPSA": ftpsa,
     "fPSA": fpsa,
-    "CCLmax": cclmax,
-    "Capsular bulging": bulge,
-    "Capsular loss": disruption,        # 原 "Capsular disruption"
+    "mCCL": mCCL,                     # 原 CCLmax
+    "Capsular Bulge": bulge,          # 原 Capsular bulging
+    "Capsular loss": disruption,
     "Capsular retraction": retraction
 }
 
